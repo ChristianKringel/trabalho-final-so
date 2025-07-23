@@ -4,7 +4,7 @@ TARGET = air_traffic_simulator
 # Diretórios
 SRCDIR = src
 INCDIR = include
-OBJDIR = obj # Diretório para arquivos objeto, será criado se não existir
+OBJDIR = obj 
 
 # Compilador C
 CC = gcc
