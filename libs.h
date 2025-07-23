@@ -82,4 +82,8 @@ typedef struct {
     pthread_mutex_t mutex_simulacao;
     time_t tempo_inicio;
 } SimulacaoAeroporto;
+
+
+void inicializar_metricas(MetricasSimulacao* metricas);
+void inicializar_recursos(RecursosAeroporto* recursos, int pistas, int portoes, int torres);
 #endif
