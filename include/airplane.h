@@ -1,0 +1,2 @@
+typedef enum { INTERNATIONAL, DOMESTIC } FlightType;
+typedef enum { LANDING, DISEMBARKING, TAKING_OFF, WAITING, FINISHED, CRASHED } AirplaneState;
