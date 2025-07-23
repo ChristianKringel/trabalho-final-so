@@ -41,3 +41,28 @@ void inicializar_recursos(RecursosAeroporto* recursos, int pistas, int portoes, 
     pthread_mutex_init(&recursos->mutex_torres, NULL);
     pthread_cond_init(&recursos->cond_torres, NULL);
 }
+
+SimulacaoAeroporto* inicializar_simulacao(int pistas, int portoes, int torres, int tempo_simulacao, int max_avioes)
+{
+    SimulacaoAeroporto* sim = (SimulacaoAeroporto*)malloc(sizeof(SimulacaoAeroporto));
+    if (sim == NULL) {
+        return NULL; 
+    }
+
+    sim->max_avioes = max_avioes; 
+    sim->avioes = (Aviao*)malloc(sim->max_avioes * sizeof(Aviao));
+    if (sim->avioes == NULL) {
+        free(sim);
+        return NULL; 
+    }
+
+    inicializar_recursos(&sim->recursos, pistas, portoes, torres);
+    inicializar_metricas(&sim->metricas);
+
+    sim->tempo_simulacao = tempo_simulacao;
+    sim->ativa = 1;
+    pthread_mutex_init(&sim->mutex_simulacao, NULL);
+    sim->tempo_inicio = time(NULL);
+
+    return sim;
+}
