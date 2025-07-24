@@ -118,7 +118,7 @@ typedef struct {
 static WINDOW *header_win, *log_win, *visual_win, *fids_win;
 
 // =============== FUNÇÕES DE INICIALIZAÇÃO ===============
-SimulacaoAeroporto* inicializar_simulacao(int pistas, int portoes, int torres, int tempo_simulacao, int max_avioes, UIViewMode modo_ui);
+SimulacaoAeroporto* inicializar_simulacao(int pistas, int portoes, int torres, int tempo_simulacao, int max_avioes);
 void inicializar_recursos(RecursosAeroporto* recursos, int pistas, int portoes, int torres);
 void inicializar_metricas(MetricasSimulacao* metricas);
 

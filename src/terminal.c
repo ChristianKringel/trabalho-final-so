@@ -4,7 +4,7 @@
 
 // As janelas agora são 'static' para serem visíveis apenas neste arquivo.
 // Isso é uma boa prática para evitar poluir o namespace global.
-static WINDOW *runway_win, *gate_win, *tower_win, *airplane_list_win, *log_win, *header_win, *airspace_win;
+//static WINDOW *runway_win, *gate_win, *tower_win, *airplane_list_win, *log_win, *header_win, *airspace_win;
 
 void init_terminal_ncurses() {
     initscr();
@@ -100,7 +100,7 @@ void close_terminal_ncurses() {
     if (fids_win) delwin(fids_win);
     
     endwin();
-    printf("Terminal Ncurses Encerrado.\n");
+    //printf("Terminal Ncurses Encerrado.\n");
 }
 
 // Função para converter o estado do avião em uma string legível
@@ -136,10 +136,8 @@ void update_terminal_display(SimulacaoAeroporto* sim) {
     box(header_win, 0, 0);
     time_t tempo_atual = time(NULL);
     int tempo_decorrido = difftime(tempo_atual, sim->tempo_inicio);
-    // Adicionamos o modo da UI como placeholder!
-    const char* modo_ui_str = (sim->modo_ui == UI_TEXTO) ? "TEXTO" : "VISUAL";
-    mvwprintw(header_win, 1, 2, "SIMULACAO DE TRAFEGO AEREO | Tempo: %d/%d s | Voos Ativos: %d | UI: %s", 
-              tempo_decorrido, sim->tempo_simulacao, voos_ativos, modo_ui_str);
+    mvwprintw(header_win, 1, 2, "SIMULACAO DE TRAFEGO AEREO | Tempo: %d/%d s | Voos Ativos: %d |", 
+              tempo_decorrido, sim->tempo_simulacao, voos_ativos);
     wrefresh(header_win);
 
     // ---- Painel Visual (versão texto) ----

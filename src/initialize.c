@@ -47,13 +47,13 @@ void inicializar_recursos(RecursosAeroporto* recursos, int pistas, int portoes, 
     pthread_cond_init(&recursos->cond_torres, NULL);
 }
 
-SimulacaoAeroporto* inicializar_simulacao(int pistas, int portoes, int torres, int tempo_simulacao, int max_avioes, UIViewMode modo_ui)
+SimulacaoAeroporto* inicializar_simulacao(int pistas, int portoes, int torres, int tempo_simulacao, int max_avioes)
 {
     SimulacaoAeroporto* sim = (SimulacaoAeroporto*)malloc(sizeof(SimulacaoAeroporto));
     if (sim == NULL) {
         return NULL; 
     }
-    sim->modo_ui = modo_ui;
+
     sim->max_avioes = max_avioes; 
     sim->avioes = (Aviao*)malloc(sim->max_avioes * sizeof(Aviao));
     if (sim->avioes == NULL) {

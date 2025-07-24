@@ -108,34 +108,38 @@ void atualizar_estado_aviao(Aviao* aviao, EstadoAviao novo_estado) {
 // =============== FUNCOES PARA RELATORIO ===============
 
 void imprimir_status_operacao(int id_aviao, TipoVoo tipo, const char* operacao, const char* status) {
-    printf("Avião ID: %d, Tipo: %s, Operação: %s, Status: %s\n", id_aviao, tipo == VOO_DOMESTICO ? "Doméstico" : "Internacional", operacao, status);
+    return; 
+    //printf("Avião ID: %d, Tipo: %s, Operação: %s, Status: %s\n", id_aviao, tipo == VOO_DOMESTICO ? "Doméstico" : "Internacional", operacao, status);
 }
 void imprimir_status_recursos(RecursosAeroporto* recursos) {
     if (recursos == NULL) {
         return; 
     }
 
-    printf("Recursos do Aeroporto:\n");
-    printf("Pistas Disponíveis: %d/%d\n", recursos->pistas_disponiveis, recursos->total_pistas);
-    printf("Portões Disponíveis: %d/%d\n", recursos->portoes_disponiveis, recursos->total_portoes);
-    printf("Torres Disponíveis: %d/%d\n", recursos->torres_disponiveis, recursos->total_torres);
+    // printf("Recursos do Aeroporto:\n");
+    // printf("Pistas Disponíveis: %d/%d\n", recursos->pistas_disponiveis, recursos->total_pistas);
+    // printf("Portões Disponíveis: %d/%d\n", recursos->portoes_disponiveis, recursos->total_portoes);
+    // printf("Torres Disponíveis: %d/%d\n", recursos->torres_disponiveis, recursos->total_torres);
 }
 
 void gerar_relatorio_final(SimulacaoAeroporto* sim) {
     if (sim == NULL) {
         return; 
     }
+    // IMPORTANTE
+    // Imprime o relatório final da simulação SEM USAR PRINTF, talvez uma janela da UI antes de encerrar? Talvez criar um arquivo de log?
+    ///////////////////////////////////////////////////////////////
 
-    printf("Relatório Final da Simulação:\n");
-    printf("Total de Aviões Criados: %d\n", sim->metricas.total_avioes_criados);
-    printf("Aviões Finalizados com Sucesso: %d\n", sim->metricas.avioes_finalizados_sucesso);
-    printf("Aviões com Falha por Starvation: %d\n", sim->metricas.avioes_falha_starvation);
-    printf("Aviões com Falha por Deadlock: %d\n", sim->metricas.avioes_falha_deadlock);
-    printf("Voos Domésticos: %d\n", sim->metricas.voos_domesticos_total);
-    printf("Voos Internacionais: %d\n", sim->metricas.voos_internacionais_total);
-    printf("Operações de Pouso: %d\n", sim->metricas.operacoes_pouso);
-    printf("Operações de Desembarque: %d\n", sim->metricas.operacoes_desembarque);
-    printf("Operações de Decolagem: %d\n", sim->metricas.operacoes_decolagem);
+    // printf("Relatório Final da Simulação:\n");
+    // printf("Total de Aviões Criados: %d\n", sim->metricas.total_avioes_criados);
+    // printf("Aviões Finalizados com Sucesso: %d\n", sim->metricas.avioes_finalizados_sucesso);
+    // printf("Aviões com Falha por Starvation: %d\n", sim->metricas.avioes_falha_starvation);
+    // printf("Aviões com Falha por Deadlock: %d\n", sim->metricas.avioes_falha_deadlock);
+    // printf("Voos Domésticos: %d\n", sim->metricas.voos_domesticos_total);
+    // printf("Voos Internacionais: %d\n", sim->metricas.voos_internacionais_total);
+    // printf("Operações de Pouso: %d\n", sim->metricas.operacoes_pouso);
+    // printf("Operações de Desembarque: %d\n", sim->metricas.operacoes_desembarque);
+    // printf("Operações de Decolagem: %d\n", sim->metricas.operacoes_decolagem);
 }
 
 void imprimir_resumo_aviao(Aviao* aviao) {
