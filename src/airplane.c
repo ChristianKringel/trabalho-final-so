@@ -18,7 +18,7 @@ Aviao* criar_aviao(int id, TipoVoo tipo) {
     aviao->thread_id = 0;
     aviao->pista_alocada = -1;
     aviao->portao_alocado = -1;
-    aviao->usando_torre = 0;
+    aviao->torre_alocada = -1;
 
     return aviao;
 }
@@ -27,18 +27,24 @@ TipoVoo gerar_tipo_voo_aleatorio() {
     return rand() % 2;
 }
 
-// ======================= FUNÇÕES DE OPERAÇÃO DE VOO =======================
 
-// --- POUSO ---
+// --- POUSO INTERNACIONAL: Pista → Torre ---
 int pouso_internacional(Aviao* aviao, SimulacaoAeroporto* sim) {
     log_evento_ui(sim, "ID %d (INTL) | Pouso: Solicitando Pista.", aviao->id);
+    
+    // 1. Solicitar pista PRIMEIRO (aguarda até conseguir)
     aviao->pista_alocada = solicitar_pista(sim, aviao->id, aviao->tipo);
-    if (aviao->pista_alocada == -1) { return 0; }
+    if (aviao->pista_alocada == -1) { 
+        log_evento_ui(sim, "ID %d (INTL) | FALHA ao obter pista.", aviao->id);
+        return 0; 
+    }
     log_evento_ui(sim, "ID %d (INTL) obteve Pista %d. Solicitando Torre.", aviao->id, aviao->pista_alocada);
 
-    if (solicitar_torre(sim, aviao->id, aviao->tipo) != 0) {
+    // 2. Solicitar torre DEPOIS (aguarda até conseguir)
+    if (solicitar_torre(sim, aviao->id, aviao->tipo) == -1) {
         liberar_pista(sim, aviao->id, aviao->pista_alocada);
         aviao->pista_alocada = -1;
+        log_evento_ui(sim, "ID %d (INTL) | FALHA ao obter torre.", aviao->id);
         return 0;
     }
     log_evento_ui(sim, "ID %d (INTL) obteve Torre. Pousando...", aviao->id);
@@ -55,14 +61,22 @@ int pouso_internacional(Aviao* aviao, SimulacaoAeroporto* sim) {
     return 1;
 }
 
+// --- POUSO DOMÉSTICO: Torre → Pista ---
 int pouso_domestico(Aviao* aviao, SimulacaoAeroporto* sim) {
     log_evento_ui(sim, "ID %d (DOM) | Pouso: Solicitando Torre.", aviao->id);
-    if (solicitar_torre(sim, aviao->id, aviao->tipo) != 0) { return 0; }
+    
+    // 1. Solicitar torre PRIMEIRO (aguarda até conseguir)
+    if (solicitar_torre(sim, aviao->id, aviao->tipo) == -1) { 
+        log_evento_ui(sim, "ID %d (DOM) | FALHA ao obter torre.", aviao->id);
+        return 0; 
+    }
     log_evento_ui(sim, "ID %d (DOM) obteve Torre. Solicitando Pista.", aviao->id);
 
+    // 2. Solicitar pista DEPOIS (aguarda até conseguir)
     aviao->pista_alocada = solicitar_pista(sim, aviao->id, aviao->tipo);
     if (aviao->pista_alocada == -1) {
         liberar_torre(sim, aviao->id);
+        log_evento_ui(sim, "ID %d (DOM) | FALHA ao obter pista.", aviao->id);
         return 0;
     }
     log_evento_ui(sim, "ID %d (DOM) obteve Pista %d. Pousando...", aviao->id, aviao->pista_alocada);
@@ -79,16 +93,23 @@ int pouso_domestico(Aviao* aviao, SimulacaoAeroporto* sim) {
     return 1;
 }
 
-// --- DESEMBARQUE ---
+// --- DESEMBARQUE INTERNACIONAL: Portão → Torre ---
 int desembarque_internacional(Aviao* aviao, SimulacaoAeroporto* sim) {
     log_evento_ui(sim, "ID %d (INTL) | Desembarque: Solicitando Portão.", aviao->id);
+    
+    // 1. Solicitar portão PRIMEIRO
     aviao->portao_alocado = solicitar_portao(sim, aviao->id, aviao->tipo);
-    if (aviao->portao_alocado == -1) { return 0; }
+    if (aviao->portao_alocado == -1) { 
+        log_evento_ui(sim, "ID %d (INTL) | FALHA ao obter portão.", aviao->id);
+        return 0; 
+    }
     log_evento_ui(sim, "ID %d (INTL) obteve Portão %d. Solicitando Torre.", aviao->id, aviao->portao_alocado);
 
-    if (solicitar_torre(sim, aviao->id, aviao->tipo) != 0) {
+    // 2. Solicitar torre DEPOIS
+    if (solicitar_torre(sim, aviao->id, aviao->tipo) == -1) {
         liberar_portao(sim, aviao->id, aviao->portao_alocado);
         aviao->portao_alocado = -1;
+        log_evento_ui(sim, "ID %d (INTL) | FALHA ao obter torre.", aviao->id);
         return 0;
     }
     log_evento_ui(sim, "ID %d (INTL) obteve Torre. Desembarcando...", aviao->id);
@@ -108,24 +129,32 @@ int desembarque_internacional(Aviao* aviao, SimulacaoAeroporto* sim) {
     return 1;
 }
 
+// --- DESEMBARQUE DOMÉSTICO: Torre → Portão ---
 int desembarque_domestico(Aviao* aviao, SimulacaoAeroporto* sim) {
     log_evento_ui(sim, "ID %d (DOM) | Desembarque: Solicitando Torre.", aviao->id);
-    if (solicitar_torre(sim, aviao->id, aviao->tipo) != 0) { return 0; }
+    
+    // 1. Solicitar torre PRIMEIRO
+    if (solicitar_torre(sim, aviao->id, aviao->tipo) == -1) { 
+        log_evento_ui(sim, "ID %d (DOM) | FALHA ao obter torre.", aviao->id);
+        return 0; 
+    }
     log_evento_ui(sim, "ID %d (DOM) obteve Torre. Solicitando Portão.", aviao->id);
 
+    // 2. Solicitar portão DEPOIS
     aviao->portao_alocado = solicitar_portao(sim, aviao->id, aviao->tipo);
     if (aviao->portao_alocado == -1) {
         liberar_torre(sim, aviao->id);
+        log_evento_ui(sim, "ID %d (DOM) | FALHA ao obter portão.", aviao->id);
         return 0;
     }
     log_evento_ui(sim, "ID %d (DOM) obteve Portão %d. Desembarcando...", aviao->id, aviao->portao_alocado);
     
     atualizar_estado_aviao(aviao, DESEMBARCANDO);
-    dormir_operacao(3000, 6000);
+    dormir_operacao_com_pausa(sim, 3000, 6000);
 
     liberar_torre(sim, aviao->id);
     log_evento_ui(sim, "ID %d (DOM) liberou Torre. Finalizando desembarque...", aviao->id);
-    dormir_operacao(1000, 2000);
+    dormir_operacao_com_pausa(sim, 1000, 2000);
 
     liberar_portao(sim, aviao->id, aviao->portao_alocado);
     log_evento_ui(sim, "ID %d (DOM) | Desembarque concluído. Portão %d liberado.", aviao->id, aviao->portao_alocado);
@@ -135,26 +164,35 @@ int desembarque_domestico(Aviao* aviao, SimulacaoAeroporto* sim) {
     return 1;
 }
 
-// --- DECOLAGEM ---
+// --- DECOLAGEM INTERNACIONAL: Portão → Pista → Torre ---
 int decolagem_internacional(Aviao* aviao, SimulacaoAeroporto* sim) {
     log_evento_ui(sim, "ID %d (INTL) | Decolagem: Solicitando Portão.", aviao->id);
+    
+    // 1. Solicitar portão PRIMEIRO
     aviao->portao_alocado = solicitar_portao(sim, aviao->id, aviao->tipo);
-    if (aviao->portao_alocado == -1) { return 0; }
+    if (aviao->portao_alocado == -1) { 
+        log_evento_ui(sim, "ID %d (INTL) | FALHA ao obter portão.", aviao->id);
+        return 0; 
+    }
     log_evento_ui(sim, "ID %d (INTL) obteve Portão %d. Solicitando Pista.", aviao->id, aviao->portao_alocado);
 
+    // 2. Solicitar pista
     aviao->pista_alocada = solicitar_pista(sim, aviao->id, aviao->tipo);
     if (aviao->pista_alocada == -1) {
         liberar_portao(sim, aviao->id, aviao->portao_alocado);
         aviao->portao_alocado = -1;
+        log_evento_ui(sim, "ID %d (INTL) | FALHA ao obter pista.", aviao->id);
         return 0;
     }
     log_evento_ui(sim, "ID %d (INTL) obteve Pista %d. Solicitando Torre.", aviao->id, aviao->pista_alocada);
-
-    if (solicitar_torre(sim, aviao->id, aviao->tipo) != 0) {
+    
+    // 3. Solicitar torre POR ÚLTIMO
+    if (solicitar_torre(sim, aviao->id, aviao->tipo) == -1) {
         liberar_portao(sim, aviao->id, aviao->portao_alocado);
         liberar_pista(sim, aviao->id, aviao->pista_alocada);
         aviao->portao_alocado = -1;
         aviao->pista_alocada = -1;
+        log_evento_ui(sim, "ID %d (INTL) | FALHA ao obter torre.", aviao->id);
         return 0;
     }
     log_evento_ui(sim, "ID %d (INTL) obteve todos os recursos. Decolando...", aviao->id);
@@ -173,29 +211,39 @@ int decolagem_internacional(Aviao* aviao, SimulacaoAeroporto* sim) {
     return 1;
 }
 
+// --- DECOLAGEM DOMÉSTICA: Torre → Portão → Pista ---
 int decolagem_domestico(Aviao* aviao, SimulacaoAeroporto* sim) {
     log_evento_ui(sim, "ID %d (DOM) | Decolagem: Solicitando Torre.", aviao->id);
-    if (solicitar_torre(sim, aviao->id, aviao->tipo) != 0) { return 0; }
+    
+    // 1. Solicitar torre PRIMEIRO
+    if (solicitar_torre(sim, aviao->id, aviao->tipo) == -1) { 
+        log_evento_ui(sim, "ID %d (DOM) | FALHA ao obter torre.", aviao->id);
+        return 0; 
+    }
     log_evento_ui(sim, "ID %d (DOM) obteve Torre. Solicitando Portão.", aviao->id);
 
+    // 2. Solicitar portão
     aviao->portao_alocado = solicitar_portao(sim, aviao->id, aviao->tipo);
     if (aviao->portao_alocado == -1) {
         liberar_torre(sim, aviao->id);
+        log_evento_ui(sim, "ID %d (DOM) | FALHA ao obter portão.", aviao->id);
         return 0;
     }
     log_evento_ui(sim, "ID %d (DOM) obteve Portão %d. Solicitando Pista.", aviao->id, aviao->portao_alocado);
 
+    // 3. Solicitar pista POR ÚLTIMO
     aviao->pista_alocada = solicitar_pista(sim, aviao->id, aviao->tipo);
     if (aviao->pista_alocada == -1) {
         liberar_torre(sim, aviao->id);
-        liberar_portao(sim,aviao->id, aviao->portao_alocado);
+        liberar_portao(sim, aviao->id, aviao->portao_alocado);
         aviao->portao_alocado = -1;
+        log_evento_ui(sim, "ID %d (DOM) | FALHA ao obter pista.", aviao->id);
         return 0;
     }
     log_evento_ui(sim, "ID %d (DOM) obteve todos os recursos. Decolando...", aviao->id);
 
     atualizar_estado_aviao(aviao, DECOLANDO);
-    dormir_operacao(2000, 4000);
+    dormir_operacao_com_pausa(sim, 2000, 4000);
 
     liberar_torre(sim, aviao->id);
     liberar_portao(sim, aviao->id, aviao->portao_alocado);
@@ -207,7 +255,6 @@ int decolagem_domestico(Aviao* aviao, SimulacaoAeroporto* sim) {
     incrementar_metrica_decolagem(&sim->metricas);
     return 1;
 }
-
 
 // ======================= THREADS PRINCIPAIS =======================
 

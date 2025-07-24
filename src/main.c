@@ -26,8 +26,8 @@ int main(int argc, char *argv[]) {
     int num_pistas = MAX_PISTAS;
     int num_portoes = MAX_PORTOES;
     int num_torres = MAX_TORRES;
-    int tempo_total_sim = 300; // 5 minutos
-    int max_avioes = 200;
+    int tempo_total_sim = 60; // 5 minutos
+    int max_avioes = 30;
 
     bool pause_simulation = false; 
     //UIViewMode modo_ui = UI_VISUAL;

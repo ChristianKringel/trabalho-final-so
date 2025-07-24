@@ -77,7 +77,7 @@ typedef struct {
     pthread_t thread_id;
     int pista_alocada;
     int portao_alocado;
-    int usando_torre;
+    int torre_alocada;
 } Aviao;
 
 // Estrutura para metricas da simulacao
