@@ -1,48 +1,79 @@
-#include "libs.h"
+// main.c
+#include "libs.h" // Ou simulador.h
 
-#include <stdio.h>
-#include <unistd.h> // Para sleep ou usleep
-#include "terminal.h" // Inclua sua interface ncurses
+// Função que será executada pela thread da UI
+void* ui_thread_func(void* arg) {
+    SimulacaoAeroporto* sim = (SimulacaoAeroporto*)arg;
+    
+    while (sim->ativa) {
+        pthread_mutex_lock(&sim->mutex_simulacao); // Trava para ler o estado
+        update_terminal_display(sim);
+        pthread_mutex_unlock(&sim->mutex_simulacao); // Libera
+        
+        sleep(33);
 
-// Você precisará de variáveis para armazenar o estado do aeroporto
-// Por enquanto, arrays simples para testar a UI
-int runway_ids[] = {0, 1, 2};
-int runway_occupancy[] = {-1, -1, -1}; // -1 para livre, ou ID do avião
-int gate_ids[] = {0, 1, 2, 3, 4};
-int gate_occupancy[] = {-1, -1, -1, -1, -1};
-int tower_current = 0;
-int tower_max = 2;
+    }
+    
+    // Última atualização para mostrar o estado final
+    pthread_mutex_lock(&sim->mutex_simulacao);
+    update_terminal_display(sim);
+    pthread_mutex_unlock(&sim->mutex_simulacao);
+    
+    return NULL;
+}
 
-int main() {
+int main(int argc, char *argv[]) {
+    // Parâmetros da simulação (poderiam vir de argv)
+    int num_pistas = MAX_PISTAS;
+    int num_portoes = MAX_PORTOES;
+    int num_torres = MAX_TORRES;
+    int tempo_total_sim = 300; // 5 minutos
+    int max_avioes = 200;
+
+    srand(time(NULL));
+
+    // 1. Inicializa a simulação
+    SimulacaoAeroporto* sim = inicializar_simulacao(num_pistas, num_portoes, num_torres, tempo_total_sim, max_avioes);
+    if (!sim) {
+        fprintf(stderr, "Falha ao inicializar a simulação.\n");
+        return 1;
+    }
+    pthread_mutex_init(&sim->mutex_ui_log, NULL);
+
+    // 2. Inicializa a UI
     init_terminal_ncurses();
 
-    // Loop de simulação (simplificado para testar a UI)
-    for (int i = 0; i < 10; ++i) {
-        // Simular alguma mudança de estado
-        if (i % 2 == 0) {
-            runway_occupancy[0] = 101; // Avião 101 ocupa pista 0
-            gate_occupancy[2] = 203;   // Avião 203 ocupa portão 2
-            tower_current = 1;         // Torre ocupada por 1
-            update_terminal_display(
-                3, runway_ids, runway_occupancy,
-                5, gate_ids, gate_occupancy,
-                tower_current, tower_max,
-                "Avião 101 ocupou Pista 0."
-            );
-        } else {
-            runway_occupancy[0] = -1; // Pista 0 livre
-            gate_occupancy[2] = -1;   // Portão 2 livre
-            tower_current = 0;         // Torre livre
-            update_terminal_display(
-                3, runway_ids, runway_occupancy,
-                5, gate_ids, gate_occupancy,
-                tower_current, tower_max,
-                "Pista 0 e Portão 2 liberados."
-            );
-        }
-        sleep(1); // Espera 1 segundo para visualização
-    }
+    // 3. Cria e lança as threads principais
+    pthread_t ui_thread_id;
+    pthread_t criador_avioes_thread_id;
 
+    pthread_create(&ui_thread_id, NULL, ui_thread_func, sim);
+    pthread_create(&criador_avioes_thread_id, NULL, criador_avioes, sim);
+
+    // 4. Aguarda o tempo de simulação
+    log_evento_ui(sim, "Simulação iniciada. Pressione qualquer tecla para finalizar antes.");
+    sleep(tempo_total_sim);
+    
+    // 5. Finaliza a simulação
+    log_evento_ui(sim, "Tempo de simulação esgotado. Finalizando...");
+    sim->ativa = 0; // Sinaliza para as threads terminarem
+
+    // 6. Aguarda as threads terminarem
+    pthread_join(criador_avioes_thread_id, NULL);
+    // Aqui você também precisaria de um loop para dar join em todas as threads de avião
+    // (A ser implementado no criador_avioes)
+    
+    pthread_join(ui_thread_id, NULL); // Aguarda a thread da UI
+
+    // 7. Limpeza
     close_terminal_ncurses();
+    
+    // 8. Gera relatório final no console
+    gerar_relatorio_final(sim);
+
+    // 9. Libera memória
+    liberar_memoria(sim);
+    pthread_mutex_destroy(&sim->mutex_ui_log);
+
     return 0;
 }

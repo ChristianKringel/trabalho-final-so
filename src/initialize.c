@@ -1,6 +1,5 @@
 #include "libs.h"
 
-// Inicializacao das metricas
 void inicializar_metricas(MetricasSimulacao* metricas)
 {
     if (metricas == NULL) {
@@ -28,11 +27,17 @@ void inicializar_recursos(RecursosAeroporto* recursos, int pistas, int portoes, 
 
     recursos->total_pistas = pistas;
     recursos->pistas_disponiveis = pistas;
+    for (int i = 0; i < MAX_PISTAS; i++) {
+        recursos->pista_ocupada_por[i] = -1; 
+    }
     pthread_mutex_init(&recursos->mutex_pistas, NULL);
     pthread_cond_init(&recursos->cond_pistas, NULL);
 
     recursos->total_portoes = portoes;
     recursos->portoes_disponiveis = portoes;
+    for (int i = 0; i < MAX_PORTOES; i++) {
+        recursos->portao_ocupado_por[i] = -1; 
+    }
     pthread_mutex_init(&recursos->mutex_portoes, NULL);
     pthread_cond_init(&recursos->cond_portoes, NULL);
 
@@ -56,12 +61,17 @@ SimulacaoAeroporto* inicializar_simulacao(int pistas, int portoes, int torres, i
         return NULL; 
     }
 
+    for (int i = 0; i < sim->max_avioes; i++) {
+        sim->avioes[i].id = 0; 
+    }
+
     inicializar_recursos(&sim->recursos, pistas, portoes, torres);
     inicializar_metricas(&sim->metricas);
 
     sim->tempo_simulacao = tempo_simulacao;
     sim->ativa = 1;
     pthread_mutex_init(&sim->mutex_simulacao, NULL);
+    pthread_mutex_init(&sim->mutex_ui_log, NULL);
     sim->tempo_inicio = time(NULL);
 
     return sim;

@@ -4,56 +4,54 @@ TARGET = air_traffic_simulator
 # Diretórios
 SRCDIR = src
 INCDIR = include
-OBJDIR = obj 
+OBJDIR = obj
 
-# Compilador C
+# Compilador e Flags
 CC = gcc
+CFLAGS = -g -I$(INCDIR) -std=c11
 
-# Flags de compilação
-# -Wall: Habilita todos os warnings
-# -Wextra: Habilita warnings extras
-# -g: Inclui informações de debug (útil para gdb)
-# -I$(INCDIR): Adiciona o diretório include ao caminho de busca de cabeçalhos
-# -std=c11: Define o padrão C11 (ou c99 se preferir)
-CFLAGS = -Wall -Wextra -g -I$(INCDIR) -std=c11
+# Bibliotecas a serem linkadas
+LIBS = -pthread -lncurses
 
-# Bibliotecas
-# -pthread: Linka com a biblioteca PThreads
-# -lncurses: Linka com a biblioteca ncurses
-# -lrt: Linka com a biblioteca de tempo real (clock_gettime, etc., pode ser útil)
-LIBS = -pthread -lncurses -lrt
+# --- Geração Automática de Arquivos ---
 
-# Encontra todos os arquivos .c no diretório src
+# Encontra todos os arquivos .c em 'src'
 SRCS = $(wildcard $(SRCDIR)/*.c)
 
-# Transforma a lista de arquivos .c em arquivos .o, salvando-os no diretório obj
+# Gera a lista de arquivos objeto (.o) correspondentes, que serão criados em 'obj'
 OBJS = $(patsubst $(SRCDIR)/%.c,$(OBJDIR)/%.o,$(SRCS))
 
+# --- Regras Principais ---
+
+# Torna 'all', 'clean', e 'run' alvos "falsos" para que o make sempre os execute.
 .PHONY: all clean run
 
-all: $(OBJDIR) $(TARGET)
+# A regra padrão (executada quando você digita apenas 'make')
+all: $(TARGET)
 
-# Cria o diretório de objetos se ele não existir
-$(OBJDIR):
-	@mkdir -p $(OBJDIR)
-
-# Regra principal para compilar o executável
+# Regra para linkar todos os objetos e criar o executável final
 $(TARGET): $(OBJS)
+	@echo "Linkando o executável..."
 	$(CC) $(OBJS) -o $@ $(LIBS)
 	@echo "--- Compilação de $(TARGET) concluída! ---"
+	@echo "Para executar, digite: make run"
 
-# Regra para compilar cada arquivo .c para .o
-# $<: nome do primeiro pré-requisito (o arquivo .c)
-# $@: nome do alvo (o arquivo .o)
+# Regra de padrão para compilar um arquivo .c de 'src' para um .o em 'obj'
 $(OBJDIR)/%.o: $(SRCDIR)/%.c
-	$(CC) $(CFLAGS) -c $< -o $@
+	@# Garante que o diretório de objetos exista antes de compilar
+	@mkdir -p $(@D)
 	@echo "Compilando $<..."
+	$(CC) $(CFLAGS) -c $< -o $@
 
+# --- Regras de Utilidade ---
+
+# Limpa todos os arquivos gerados
 clean:
 	@echo "Limpando arquivos gerados..."
 	@rm -rf $(OBJDIR) $(TARGET)
 	@echo "Limpeza concluída."
 
+# Compila e executa o programa
 run: all
 	@echo "--- Executando $(TARGET)... ---"
 	@./$(TARGET)

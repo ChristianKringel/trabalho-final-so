@@ -43,11 +43,11 @@ void liberar_memoria(SimulacaoAeroporto* sim) {
     free(sim);
 }
 
-// =============== FUNCOES DE MONITORAMENTO ===============
-void* monitor_starvation(void* arg);
-int verificar_starvation(Aviao* aviao, time_t tempo_atual);
-int detectar_deadlock(SimulacaoAeroporto* sim);
-void atualizar_estado_aviao(Aviao* aviao, EstadoAviao novo_estado);
+// // =============== FUNCOES DE MONITORAMENTO ===============
+// void* monitor_starvation(void* arg);
+// int verificar_starvation(Aviao* aviao, time_t tempo_atual);
+// int detectar_deadlock(SimulacaoAeroporto* sim);
+// void atualizar_estado_aviao(Aviao* aviao, EstadoAviao novo_estado);
 
 
 // REVISAR // 
@@ -88,6 +88,21 @@ int detectar_deadlock(SimulacaoAeroporto* sim) {
 
     pthread_mutex_unlock(&sim->mutex_simulacao);
     return 0; 
+}
+
+atualizar_estado_aviao(Aviao* aviao, EstadoAviao novo_estado) {
+    if (aviao == NULL) {
+        return; 
+    }
+
+    pthread_mutex_lock(&aviao->usando_torre ? &aviao->usando_torre : &aviao->pista_alocada);
+    aviao->estado = novo_estado;
+    if (novo_estado == AGUARDANDO_POUSO || novo_estado == AGUARDANDO_DECOLAGEM) {
+        aviao->tempo_inicio_espera = time(NULL);
+    } else if (novo_estado == FINALIZADO || novo_estado == FALHA_STARVATION || novo_estado == FALHA_DEADLOCK) {
+        aviao->tempo_fim_operacao = time(NULL);
+    }
+    pthread_mutex_unlock(&aviao->usando_torre ? &aviao->usando_torre : &aviao->pista_alocada);
 }
 
 // =============== FUNCOES PARA RELATORIO ===============
@@ -135,7 +150,7 @@ void imprimir_resumo_aviao(Aviao* aviao) {
            aviao->tempo_criacao);
 }
 
-gerar_numero_aleatorio(int min, int max) {
+int gerar_numero_aleatorio(int min, int max) {
     if (min >= max) {
         return min; 
     }
@@ -149,6 +164,6 @@ void dormir_operacao(int min_ms, int max_ms) {
     }
 
     int tempo = gerar_numero_aleatorio(min_ms, max_ms);
-    usleep(tempo * 1000); // Converte milissegundos para microssegundos
+    sleep(tempo * 1000); // Converte milissegundos para microssegundos
 }
 

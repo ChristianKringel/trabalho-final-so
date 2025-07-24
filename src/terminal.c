@@ -1,131 +1,128 @@
-#include "terminal.h"
-#include <string.h> // Para memset, etc.
+// terminal.c
+#include "libs.h" // Ou simulador.h
 
-// Definição das janelas (globais, visíveis apenas neste .c)
-WINDOW *main_win;
-WINDOW *runway_win;
-WINDOW *gate_win;
-WINDOW *tower_win;
-WINDOW *airplane_list_win;
-WINDOW *metrics_win;
-WINDOW *log_win; // Janela para mensagens de log
-WINDOW *header_win; // Janela para o cabeçalho (opcional, se quiser um título ou status geral)
+
+// As janelas agora são 'static' para serem visíveis apenas neste arquivo.
+// Isso é uma boa prática para evitar poluir o namespace global.
+static WINDOW *runway_win, *gate_win, *tower_win, *airplane_list_win, *log_win, *header_win;
 
 void init_terminal_ncurses() {
-    main_win = initscr(); 
-    if (main_win == NULL) {
-        // Trate o erro, talvez imprima para stderr e saia
-        return;
-    }
-    noecho();             // Não exibe caracteres digitados
-    cbreak();             // Leitura imediata de caracteres (Ctrl+C funciona)
-    keypad(stdscr, TRUE); // Habilita teclas especiais (setas, F-keys)
-    curs_set(0);          // Esconde o cursor
-    start_color();        // Habilita cores (se quiser usar)
-    // init_pair(1, COLOR_GREEN, COLOR_BLACK); // Exemplo de cor para livre
-    // init_pair(2, COLOR_RED, COLOR_BLACK);   // Exemplo de cor para ocupado
-
-    // --- Criação e Layout Básico das Janelas ---
-    // Você vai ajustar esses tamanhos e posições conforme sua tela e o que deseja mostrar
-    int current_y = 0;
-
-    // Cabeçalho (ex: tempo de simulação, status geral)
-    header_win = newwin(3, COLS, current_y, 0); box(header_win, 0, 0); wrefresh(header_win); current_y += 3;
-
-    // Pistas (ex: 3 pistas, 1 linha por pista + título + bordas)
-    runway_win = newwin(5, COLS / 2, current_y, 0);
-    box(runway_win, 0, 0);
-    mvwprintw(runway_win, 1, 1, "Pistas:");
-    wrefresh(runway_win);
-    current_y += 5;
-
-    // Portões (ex: 5 portões)
-    gate_win = newwin(7, COLS / 2, current_y, 0);
-    box(gate_win, 0, 0);
-    mvwprintw(gate_win, 1, 1, "Portões:");
-    wrefresh(gate_win);
-    current_y += 7;
-
-    // Torre de Controle
-    tower_win = newwin(5, COLS / 2, current_y, 0);
-    box(tower_win, 0, 0);
-    mvwprintw(tower_win, 1, 1, "Torre de Controle:");
-    wrefresh(tower_win);
-    current_y += 5;
-
-    // Lista de Aviões (ocupará a maior parte da direita)
-    airplane_list_win = newwin(LINES - (current_y + 3), COLS / 2, header_win ? header_win->_maxy + 1 : 0, COLS / 2); // Ajuste a posição Y e largura
-    box(airplane_list_win, 0, 0);
-    mvwprintw(airplane_list_win, 1, 1, "Aviões Ativos:");
-    wrefresh(airplane_list_win);
-
-    // Log de eventos na parte inferior
-    log_win = newwin(3, COLS, LINES - 3, 0); // Últimas 3 linhas
-    box(log_win, 0, 0);
+    initscr();
+    noecho();
+    cbreak();
+    keypad(stdscr, TRUE);
+    curs_set(0);
+    start_color();
+    // ... (seu código de inicialização de janelas é ótimo e pode permanecer) ...
+    // Exemplo:
+    header_win = newwin(3, COLS, 0, 0);
+    log_win = newwin(5, COLS, LINES - 5, 0);
     scrollok(log_win, TRUE); // Habilita rolagem para o log
-    wrefresh(log_win);
-
-    refresh(); // Atualiza a tela principal (stdscr) após criar as janelas
-}
-
-void update_terminal_display(
-    int num_runways, int* runway_ids, int* runway_occupancy,
-    int num_gates, int* gate_ids, int* gate_occupancy,
-    int tower_current_occupancy, int tower_max_occupancy,
-    const char* log_message // Log simples, uma mensagem por vez
-) {
-    // --- Pistas ---
-    wclear(runway_win);
-    box(runway_win, 0, 0);
-    mvwprintw(runway_win, 1, 1, "Pistas:");
-    for (int i = 0; i < num_runways; i++) {
-        mvwprintw(runway_win, 2 + i, 1, "Pista %d: %s (Avião: %d)",
-                  runway_ids[i],
-                  runway_occupancy[i] == -1 ? "Livre" : "Ocupada",
-                  runway_occupancy[i]); // -1 se livre
-    }
-    wrefresh(runway_win);
-
-    // --- Portões ---
-    wclear(gate_win);
-    box(gate_win, 0, 0);
-    mvwprintw(gate_win, 1, 1, "Portões:");
-    for (int i = 0; i < num_gates; i++) {
-        mvwprintw(gate_win, 2 + i, 1, "Portão %d: %s (Avião: %d)",
-                  gate_ids[i],
-                  gate_occupancy[i] == -1 ? "Livre" : "Ocupada",
-                  gate_occupancy[i]); // -1 se livre
-    }
-    wrefresh(gate_win);
-
-    // --- Torre de Controle ---
-    wclear(tower_win);
-    box(tower_win, 0, 0);
-    mvwprintw(tower_win, 1, 1, "Torre de Controle:");
-    mvwprintw(tower_win, 2, 1, "Ocupação: %d/%d", tower_current_occupancy, tower_max_occupancy);
-    wrefresh(tower_win);
-
-    // --- Log de Eventos Simples ---
-    if (log_message != NULL && strlen(log_message) > 0) {
-        wscrl(log_win, 1); // Rola o conteúdo para cima
-        mvwprintw(log_win, getmaxy(log_win) - 2, 1, "%s", log_message); // Adiciona na penúltima linha
-    }
-    wrefresh(log_win);
-
-
-    doupdate(); // Atualiza todas as janelas virtuais para a tela física
+    // ... criar as outras janelas
+    refresh();
 }
 
 void close_terminal_ncurses() {
-    // Destruir as janelas
-    delwin(runway_win);
-    delwin(gate_win);
-    delwin(tower_win);
-    delwin(airplane_list_win);
-    // delwin(metrics_win); // Se existirem
-    delwin(log_win);
-    delwin(main_win); // stdscr, geralmente não é necessário, endwin() faz isso.
-
-    endwin(); // Finaliza ncurses
+    // ... (seu código de destruição de janelas) ...
+    endwin();
     printf("Terminal Ncurses Encerrado.\n");
+}
+
+// Função para converter o estado do avião em uma string legível
+const char* estado_para_str(EstadoAviao estado) {
+    switch (estado) {
+        case AGUARDANDO_POUSO: return "Aguardando Pouso";
+        case POUSANDO: return "Pousando";
+        case AGUARDANDO_DESEMBARQUE: return "Aguard. Desembarque";
+        case DESEMBARCANDO: return "Desembarcando";
+        case AGUARDANDO_DECOLAGEM: return "Aguard. Decolagem";
+        case DECOLANDO: return "Decolando";
+        case FINALIZADO_SUCESSO: return "Finalizado";
+        default: return "Falha";
+    }
+}
+
+// A nova função de atualização, muito mais limpa e poderosa
+void update_terminal_display(SimulacaoAeroporto* sim) {
+    // ---- Cabeçalho ----
+    wclear(header_win);
+    box(header_win, 0, 0);
+    time_t tempo_atual = time(NULL);
+    int tempo_decorrido = difftime(tempo_atual, sim->tempo_inicio);
+    mvwprintw(header_win, 1, 1, "Simulação de Tráfego Aéreo | Tempo: %d/%d s | Simulação: %s", 
+              tempo_decorrido, sim->tempo_simulacao, sim->ativa ? "ATIVA" : "FINALIZANDO");
+    wrefresh(header_win);
+    
+    // ---- Pistas ----
+    wclear(runway_win);
+    box(runway_win, 0, 0);
+    mvwprintw(runway_win, 1, 2, "PISTAS (%d/%d)", sim->recursos.total_pistas - sim->recursos.pistas_disponiveis, sim->recursos.total_pistas);
+    for (int i = 0; i < sim->recursos.total_pistas; i++) {
+        int aviao_id = sim->recursos.pista_ocupada_por[i];
+        if (aviao_id != -1) {
+            mvwprintw(runway_win, 2 + i, 2, "Pista %d: [OCUPADA] - Avião %d", i, aviao_id);
+        } else {
+            mvwprintw(runway_win, 2 + i, 2, "Pista %d: [LIVRE]", i);
+        }
+    }
+    wrefresh(runway_win);
+
+    // ---- Portões (similar às pistas) ----
+    wclear(gate_win);
+    box(gate_win, 0, 0);
+    mvwprintw(gate_win, 1, 2, "PORTÕES (%d/%d)", sim->recursos.total_portoes - sim->recursos.portoes_disponiveis, sim->recursos.total_portoes);
+    for (int i = 0; i < sim->recursos.total_portoes; i++) {
+        int aviao_id = sim->recursos.portao_ocupado_por[i];
+        if (aviao_id != -1) {
+            mvwprintw(gate_win, 2 + i, 2, "Portão %d: [OCUPADO] - Avião %d", i, aviao_id);
+        } else {
+            mvwprintw(gate_win, 2 + i, 2, "Portão %d: [LIVRE]", i);
+        }
+    }
+    wrefresh(gate_win);
+
+    // ---- Torre ----
+    wclear(tower_win);
+    box(tower_win, 0, 0);
+    mvwprintw(tower_win, 1, 2, "TORRE DE CONTROLE");
+    mvwprintw(tower_win, 2, 2, "Operações simultâneas: %d/%d", sim->recursos.total_torres - sim->recursos.torres_disponiveis, sim->recursos.total_torres);
+    wrefresh(tower_win);
+
+    // ---- Lista de Aviões ----
+    wclear(airplane_list_win);
+    box(airplane_list_win, 0, 0);
+    mvwprintw(airplane_list_win, 1, 2, "ID | TIPO | ESTADO");
+    int linha_aviao = 2;
+    for (int i = 0; i < sim->metricas.total_avioes_criados; i++) {
+        if (sim->avioes[i].estado != FINALIZADO_SUCESSO && sim->avioes[i].estado != FALHA_DEADLOCK && sim->avioes[i].estado != FALHA_STARVATION) {
+             mvwprintw(airplane_list_win, linha_aviao++, 2, "%-3d| %-4s | %s", 
+                sim->avioes[i].id, 
+                sim->avioes[i].tipo == VOO_DOMESTICO ? "DOM" : "INTL",
+                estado_para_str(sim->avioes[i].estado)
+            );
+        }
+    }
+    wrefresh(airplane_list_win);
+
+    // É importante chamar doupdate() uma vez no final para renderizar tudo de uma vez
+    doupdate();
+}
+
+// Função de log segura para threads
+void log_evento_ui(SimulacaoAeroporto* sim, const char* formato, ...) {
+    char buffer[256];
+    va_list args;
+    va_start(args, formato);
+    vsnprintf(buffer, sizeof(buffer), formato, args);
+    va_end(args);
+
+    // Trava o mutex específico para o log antes de interagir com a janela
+    pthread_mutex_lock(&sim->mutex_ui_log);
+    
+    wscrl(log_win, 1); // Rola o conteúdo da janela de log
+    mvwprintw(log_win, getmaxy(log_win) - 2, 1, ">> %s", buffer);
+    box(log_win, 0, 0); // Redesenha a borda
+    wrefresh(log_win);
+    
+    pthread_mutex_unlock(&sim->mutex_ui_log);
 }
