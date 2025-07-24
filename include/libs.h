@@ -25,6 +25,10 @@
 // Enum para tipos de voo
 typedef enum { VOO_DOMESTICO, VOO_INTERNACIONAL } TipoVoo;
 
+typedef enum {
+    UI_TEXTO,
+    UI_VISUAL
+} UIViewMode;
 // Enum para estados do aviao
 typedef enum {
     AGUARDANDO_POUSO,
@@ -99,6 +103,7 @@ typedef struct s_simulacao_aeroporto {
     pthread_mutex_t mutex_simulacao;
     pthread_mutex_t mutex_ui_log; 
     time_t tempo_inicio;
+    UIViewMode modo_ui;
 } SimulacaoAeroporto;
 
 typedef struct {
@@ -106,8 +111,12 @@ typedef struct {
     SimulacaoAeroporto* sim;
 } ThreadArgs;
 
+
+
+static WINDOW *header_win, *log_win, *visual_win, *fids_win;
+
 // =============== FUNÇÕES DE INICIALIZAÇÃO ===============
-SimulacaoAeroporto* inicializar_simulacao(int pistas, int portoes, int torres, int tempo_simulacao, int max_avioes);
+SimulacaoAeroporto* inicializar_simulacao(int pistas, int portoes, int torres, int tempo_simulacao, int max_avioes, UIViewMode modo_ui);
 void inicializar_recursos(RecursosAeroporto* recursos, int pistas, int portoes, int torres);
 void inicializar_metricas(MetricasSimulacao* metricas);
 

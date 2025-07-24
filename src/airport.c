@@ -16,7 +16,7 @@ int solicitar_pista(SimulacaoAeroporto* sim, int id_aviao, TipoVoo tipo) {
         }
     }
     recursos->pistas_disponiveis--;
-    printf("Avião %d do tipo %d solicitou uma pista. Pistas disponíveis: %d\n", id_aviao, tipo, recursos->pistas_disponiveis);
+    //printf("Avião %d do tipo %d solicitou uma pista. Pistas disponíveis: %d\n", id_aviao, tipo, recursos->pistas_disponiveis);
     
     pthread_mutex_unlock(&recursos->mutex_pistas);
     return pista_idx;
@@ -28,7 +28,7 @@ void liberar_pista(SimulacaoAeroporto* sim, int id_aviao, int pista_idx) {
     
     recursos->pista_ocupada_por[pista_idx] = -1;
     recursos->pistas_disponiveis++;
-    printf("Avião %d liberou uma pista. Pistas disponíveis: %d\n", id_aviao, recursos->pistas_disponiveis);
+    //printf("Avião %d liberou uma pista. Pistas disponíveis: %d\n", id_aviao, recursos->pistas_disponiveis);
     
     pthread_cond_signal(&recursos->cond_pistas);
     pthread_mutex_unlock(&recursos->mutex_pistas);
@@ -51,7 +51,7 @@ int solicitar_portao(SimulacaoAeroporto* sim, int id_aviao, TipoVoo tipo) {
         }
     }
     recursos->portoes_disponiveis--;
-    printf("Avião %d do tipo %d solicitou um portão. Portões disponíveis: %d\n", id_aviao, tipo, recursos->portoes_disponiveis);
+    //printf("Avião %d do tipo %d solicitou um portão. Portões disponíveis: %d\n", id_aviao, tipo, recursos->portoes_disponiveis);
     
     pthread_mutex_unlock(&recursos->mutex_portoes);
     return portao_idx;
@@ -63,7 +63,7 @@ void liberar_portao(SimulacaoAeroporto* sim, int id_aviao, int portao_idx) {
 
     recursos->portao_ocupado_por[portao_idx] = -1;
     recursos->portoes_disponiveis++;
-    printf("Avião %d liberou um portão. Portões disponíveis: %d\n", id_aviao, recursos->portoes_disponiveis);
+    //printf("Avião %d liberou um portão. Portões disponíveis: %d\n", id_aviao, recursos->portoes_disponiveis);
     
     pthread_cond_signal(&recursos->cond_portoes);
     pthread_mutex_unlock(&recursos->mutex_portoes);
@@ -78,7 +78,7 @@ int solicitar_torre(SimulacaoAeroporto* sim, int id_aviao, TipoVoo tipo) {
     }
     
     recursos->torres_disponiveis--;
-    printf("Avião %d do tipo %d solicitou uma torre. Torres disponíveis: %d\n", id_aviao, tipo, recursos->torres_disponiveis);
+    //printf("Avião %d do tipo %d solicitou uma torre. Torres disponíveis: %d\n", id_aviao, tipo, recursos->torres_disponiveis);
     
     pthread_mutex_unlock(&recursos->mutex_torres);
     return 0;
@@ -89,7 +89,7 @@ void liberar_torre(SimulacaoAeroporto* sim, int id_aviao) {
     pthread_mutex_lock(&recursos->mutex_torres);
     
     recursos->torres_disponiveis++;
-    printf("Avião %d liberou uma torre. Torres disponíveis: %d\n", id_aviao, recursos->torres_disponiveis);
+    //printf("Avião %d liberou uma torre. Torres disponíveis: %d\n", id_aviao, recursos->torres_disponiveis);
     
     pthread_cond_signal(&recursos->cond_torres);
     pthread_mutex_unlock(&recursos->mutex_torres);

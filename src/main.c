@@ -29,11 +29,12 @@ int main(int argc, char *argv[]) {
     int num_torres = MAX_TORRES;
     int tempo_total_sim = 300; // 5 minutos
     int max_avioes = 200;
+    UIViewMode modo_ui = UI_VISUAL;
 
     srand(time(NULL));
 
     // 1. Inicializa a simulação
-    SimulacaoAeroporto* sim = inicializar_simulacao(num_pistas, num_portoes, num_torres, tempo_total_sim, max_avioes);
+    SimulacaoAeroporto* sim = inicializar_simulacao(num_pistas, num_portoes, num_torres, tempo_total_sim, max_avioes, modo_ui);
     if (!sim) {
         fprintf(stderr, "Falha ao inicializar a simulação.\n");
         return 1;
