@@ -267,7 +267,7 @@ void* thread_aviao(void* arg) {
 
     // ----- 4. FINALIZAÇÃO -----
     log_evento_ui(sim, "ID %d completou seu ciclo de vida com SUCESSO.", aviao->id);
-    atualizar_estado_aviao(aviao, FINALIZADO);
+    atualizar_estado_aviao(aviao, FINALIZADO_SUCESSO);
     incrementar_aviao_sucesso(&sim->metricas);
     
     free(args);
@@ -279,7 +279,7 @@ void* criador_avioes(void* arg) {
     int proximo_id = 1;
 
     while (sim->ativa) {
-        sleep((rand() % 2000 + 500) * 1000); // Cria um avião a cada 0.5-2.5 segundos
+        usleep((rand() % 2000 + 500) * 1000); // Cria um avião a cada 0.5-2.5 segundos
 
         pthread_mutex_lock(&sim->mutex_simulacao);
 
@@ -294,7 +294,11 @@ void* criador_avioes(void* arg) {
         
         // Cria o avião
         TipoVoo tipo = gerar_tipo_voo_aleatorio();
-        *novo_aviao = *criar_aviao(proximo_id, tipo); // Copia os dados
+        Aviao* temp_aviao = criar_aviao(proximo_id, tipo);
+        if (temp_aviao) {
+            *novo_aviao = *temp_aviao; // Copia os dados
+            free(temp_aviao); // Libera o temporário
+        }
         
         // Prepara os argumentos para a thread
         ThreadArgs* args = (ThreadArgs*)malloc(sizeof(ThreadArgs));
@@ -312,9 +316,15 @@ void* criador_avioes(void* arg) {
             free(args);
         } else {
             log_evento_ui(sim, "CRIADO: Avião %d (%s)", novo_aviao->id, tipo == VOO_DOMESTICO ? "DOM" : "INTL");
-            // DUVIDA AQUI
-            incrementar_aviao_deadlock(&sim->metricas); // Função de métrica
-            // incrementar_aviao_criado(&sim->metricas); // Função de métrica ANTES TAVAISSO AQUI. VERIFICAR METRICAS DEPOIS
+            // Incrementa o contador de aviões criados
+            pthread_mutex_lock(&sim->metricas.mutex_metricas);
+            sim->metricas.total_avioes_criados++;
+            if (tipo == VOO_DOMESTICO) {
+                sim->metricas.voos_domesticos_total++;
+            } else {
+                sim->metricas.voos_internacionais_total++;
+            }
+            pthread_mutex_unlock(&sim->metricas.mutex_metricas);
             proximo_id++;
         }
 

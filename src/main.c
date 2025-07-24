@@ -10,7 +10,7 @@ void* ui_thread_func(void* arg) {
         update_terminal_display(sim);
         pthread_mutex_unlock(&sim->mutex_simulacao); // Libera
         
-        sleep(33);
+        sleep(1); // Update every 1 second instead of 33ms
 
     }
     

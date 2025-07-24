@@ -90,19 +90,19 @@ int detectar_deadlock(SimulacaoAeroporto* sim) {
     return 0; 
 }
 
-atualizar_estado_aviao(Aviao* aviao, EstadoAviao novo_estado) {
+void atualizar_estado_aviao(Aviao* aviao, EstadoAviao novo_estado) {
     if (aviao == NULL) {
         return; 
     }
 
-    pthread_mutex_lock(&aviao->usando_torre ? &aviao->usando_torre : &aviao->pista_alocada);
+    // Simply update the state - no need for complex mutex logic here
+    // The airplane's state changes should be protected by the main simulation mutex
     aviao->estado = novo_estado;
     if (novo_estado == AGUARDANDO_POUSO || novo_estado == AGUARDANDO_DECOLAGEM) {
         aviao->tempo_inicio_espera = time(NULL);
-    } else if (novo_estado == FINALIZADO || novo_estado == FALHA_STARVATION || novo_estado == FALHA_DEADLOCK) {
+    } else if (novo_estado == FINALIZADO_SUCESSO || novo_estado == FALHA_STARVATION || novo_estado == FALHA_DEADLOCK) {
         aviao->tempo_fim_operacao = time(NULL);
     }
-    pthread_mutex_unlock(&aviao->usando_torre ? &aviao->usando_torre : &aviao->pista_alocada);
 }
 
 // =============== FUNCOES PARA RELATORIO ===============
@@ -164,6 +164,6 @@ void dormir_operacao(int min_ms, int max_ms) {
     }
 
     int tempo = gerar_numero_aleatorio(min_ms, max_ms);
-    sleep(tempo * 1000); // Converte milissegundos para microssegundos
+    usleep(tempo * 1000); // Converte milissegundos para microssegundos
 }
 
