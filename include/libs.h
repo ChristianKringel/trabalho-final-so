@@ -1,4 +1,5 @@
 #ifndef LIBS_H
+#define _POSIX_C_SOURCE 200809L
 
 #include <ncurses.h>
 #include <stdio.h>
@@ -10,6 +11,7 @@
 #include <unistd.h>
 #include <ncurses.h>
 #include <stdarg.h> 
+#include <ctype.h>
 
 
 //#include "structs.h" // RECOMENDAÇÃO: Mova todas as suas structs para um arquivo separado

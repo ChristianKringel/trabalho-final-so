@@ -11,6 +11,7 @@ void init_terminal_ncurses() {
     noecho();
     cbreak();
     keypad(stdscr, TRUE);
+    nodelay(stdscr, TRUE);
     curs_set(0);
     start_color();
     

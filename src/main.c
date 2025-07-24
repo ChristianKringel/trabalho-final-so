@@ -23,7 +23,6 @@ void* ui_thread_func(void* arg) {
 }
 
 int main(int argc, char *argv[]) {
-    // Parâmetros da simulação (poderiam vir de argv)
     int num_pistas = MAX_PISTAS;
     int num_portoes = MAX_PORTOES;
     int num_torres = MAX_TORRES;
@@ -33,7 +32,6 @@ int main(int argc, char *argv[]) {
 
     srand(time(NULL));
 
-    // 1. Inicializa a simulação
     SimulacaoAeroporto* sim = inicializar_simulacao(num_pistas, num_portoes, num_torres, tempo_total_sim, max_avioes, modo_ui);
     if (!sim) {
         fprintf(stderr, "Falha ao inicializar a simulação.\n");
@@ -41,38 +39,42 @@ int main(int argc, char *argv[]) {
     }
     pthread_mutex_init(&sim->mutex_ui_log, NULL);
 
-    // 2. Inicializa a UI
     init_terminal_ncurses();
 
-    // 3. Cria e lança as threads principais
+    timeout(100); 
+    
     pthread_t ui_thread_id;
     pthread_t criador_avioes_thread_id;
+
+    log_evento_ui(sim, "Simulação iniciada. Pressione 'q' para finalizar.");
 
     pthread_create(&ui_thread_id, NULL, ui_thread_func, sim);
     pthread_create(&criador_avioes_thread_id, NULL, criador_avioes, sim);
 
-    // 4. Aguarda o tempo de simulação
-    log_evento_ui(sim, "Simulação iniciada. Pressione qualquer tecla para finalizar antes.");
-    sleep(tempo_total_sim);
-    
-    // 5. Finaliza a simulação
-    log_evento_ui(sim, "Tempo de simulação esgotado. Finalizando...");
-    sim->ativa = 0; // Sinaliza para as threads terminarem
+    while(sim->ativa) {
+        int ch = getch();
+        if (ch == 'q' || ch == 'Q') {
+            log_evento_ui(sim, "Simulação finalizada pelo usuário.");
+            finalizar_simulacao(sim); 
+            break;
+        }
+        
+        if (difftime(time(NULL), sim->tempo_inicio) >= tempo_total_sim) {
+            log_evento_ui(sim, "Tempo de simulação esgotado. Finalizando...");
+            finalizar_simulacao(sim); 
+            break;
+        }
+        
+        usleep(100000); 
+    }
 
-    // 6. Aguarda as threads terminarem
     pthread_join(criador_avioes_thread_id, NULL);
-    // Aqui você também precisaria de um loop para dar join em todas as threads de avião
-    // (A ser implementado no criador_avioes)
-    
-    pthread_join(ui_thread_id, NULL); // Aguarda a thread da UI
+    pthread_join(ui_thread_id, NULL);
 
-    // 7. Limpeza
     close_terminal_ncurses();
     
-    // 8. Gera relatório final no console
     gerar_relatorio_final(sim);
 
-    // 9. Libera memória
     liberar_memoria(sim);
     pthread_mutex_destroy(&sim->mutex_ui_log);
 
