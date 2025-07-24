@@ -113,9 +113,7 @@ typedef struct {
     SimulacaoAeroporto* sim;
 } ThreadArgs;
 
-
-
-static WINDOW *header_win, *log_win, *visual_win, *fids_win;
+static WINDOW *header_win, *log_win, *info_win, *status_win;
 
 // =============== FUNÇÕES DE INICIALIZAÇÃO ===============
 SimulacaoAeroporto* inicializar_simulacao(int pistas, int portoes, int torres, int tempo_simulacao, int max_avioes);
