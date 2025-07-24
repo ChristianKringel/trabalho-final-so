@@ -28,6 +28,8 @@ int main(int argc, char *argv[]) {
     int num_torres = MAX_TORRES;
     int tempo_total_sim = 300; // 5 minutos
     int max_avioes = 200;
+
+    bool pause_simulation = false; 
     //UIViewMode modo_ui = UI_VISUAL;
 
     srand(time(NULL));
@@ -58,6 +60,19 @@ int main(int argc, char *argv[]) {
             finalizar_simulacao(sim); 
             break;
         }
+
+        if (ch == 'p' || ch == 'P') {
+            pthread_mutex_lock(&sim->mutex_pausado);
+            sim->pausado = !sim->pausado;
+
+            if (sim->pausado) {
+                log_evento_ui(sim, "Simulação PAUSADA. Pressione 'p' para retomar.");
+            } else {
+                log_evento_ui(sim, "Simulação RETOMADA.");
+                pthread_cond_broadcast(&sim->cond_pausado);
+            }
+            pthread_mutex_unlock(&sim->mutex_pausado);
+        }
         
         if (difftime(time(NULL), sim->tempo_inicio) >= tempo_total_sim) {
             log_evento_ui(sim, "Tempo de simulação esgotado. Finalizando...");
@@ -70,6 +85,8 @@ int main(int argc, char *argv[]) {
 
     pthread_join(criador_avioes_thread_id, NULL);
     pthread_join(ui_thread_id, NULL);
+    pthread_mutex_destroy(&sim->mutex_pausado);
+    pthread_cond_destroy(&sim->cond_pausado);
 
     close_terminal_ncurses();
     

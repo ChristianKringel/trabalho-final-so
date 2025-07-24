@@ -53,7 +53,7 @@ SimulacaoAeroporto* inicializar_simulacao(int pistas, int portoes, int torres, i
     if (sim == NULL) {
         return NULL; 
     }
-
+    
     sim->max_avioes = max_avioes; 
     sim->avioes = (Aviao*)malloc(sim->max_avioes * sizeof(Aviao));
     if (sim->avioes == NULL) {
@@ -70,9 +70,16 @@ SimulacaoAeroporto* inicializar_simulacao(int pistas, int portoes, int torres, i
 
     sim->tempo_simulacao = tempo_simulacao;
     sim->ativa = 1;
+
     pthread_mutex_init(&sim->mutex_simulacao, NULL);
     pthread_mutex_init(&sim->mutex_ui_log, NULL);
+
     sim->tempo_inicio = time(NULL);
+
+    
+    sim->pausado = false;
+    pthread_mutex_init(&sim->mutex_pausado, NULL);
+    pthread_cond_init(&sim->cond_pausado, NULL);
 
     return sim;
 }

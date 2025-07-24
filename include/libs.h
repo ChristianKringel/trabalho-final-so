@@ -106,6 +106,9 @@ typedef struct s_simulacao_aeroporto {
     pthread_mutex_t mutex_ui_log; 
     time_t tempo_inicio;
     UIViewMode modo_ui;
+    bool pausado;
+    pthread_cond_t cond_pausado;
+    pthread_mutex_t mutex_pausado;
 } SimulacaoAeroporto;
 
 typedef struct {
@@ -114,6 +117,7 @@ typedef struct {
 } ThreadArgs;
 
 static WINDOW *header_win, *log_win, *info_win, *status_win;
+
 
 // =============== FUNÇÕES DE INICIALIZAÇÃO ===============
 SimulacaoAeroporto* inicializar_simulacao(int pistas, int portoes, int torres, int tempo_simulacao, int max_avioes);
@@ -182,6 +186,7 @@ const char* estado_para_string(EstadoAviao estado);
 const char* tipo_voo_para_string(TipoVoo tipo);
 double calcular_tempo_decorrido(time_t inicio, time_t fim);
 void dormir_operacao(int min_ms, int max_ms);
+void dormir_operacao_com_pausa(SimulacaoAeroporto* sim, int min_ms, int max_ms);
 int gerar_numero_aleatorio(int min, int max);
 
 void init_terminal_ncurses();

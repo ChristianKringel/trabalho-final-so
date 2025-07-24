@@ -1,14 +1,5 @@
 #include "libs.h"
 #include <unistd.h>
-// Protótipos das funções locais deste arquivo
-// Aviao* criar_aviao(int id, TipoVoo tipo);
-// TipoVoo gerar_tipo_voo_aleatorio();
-// int pouso_internacional(Aviao* aviao, SimulacaoAeroporto* sim);
-// int pouso_domestico(Aviao* aviao, SimulacaoAeroporto* sim);
-// int desembarque_internacional(Aviao* aviao, SimulacaoAeroporto* sim);
-// int desembarque_domestico(Aviao* aviao, SimulacaoAeroporto* sim);
-// int decolagem_internacional(Aviao* aviao, SimulacaoAeroporto* sim);
-// int decolagem_domestico(Aviao* aviao, SimulacaoAeroporto* sim);
 
 // ======================= FUNÇÕES DE CRIAÇÃO =======================
 
@@ -53,7 +44,7 @@ int pouso_internacional(Aviao* aviao, SimulacaoAeroporto* sim) {
     log_evento_ui(sim, "ID %d (INTL) obteve Torre. Pousando...", aviao->id);
     
     atualizar_estado_aviao(aviao, POUSANDO);
-    dormir_operacao(2000, 4000);
+    dormir_operacao_com_pausa(sim, 2000, 4000);
 
     liberar_pista(sim, aviao->id, aviao->pista_alocada);
     liberar_torre(sim, aviao->id);
@@ -77,7 +68,7 @@ int pouso_domestico(Aviao* aviao, SimulacaoAeroporto* sim) {
     log_evento_ui(sim, "ID %d (DOM) obteve Pista %d. Pousando...", aviao->id, aviao->pista_alocada);
     
     atualizar_estado_aviao(aviao, POUSANDO);
-    dormir_operacao(2000, 4000);
+    dormir_operacao_com_pausa(sim, 2000, 4000);
 
     liberar_torre(sim, aviao->id);
     liberar_pista(sim, aviao->id, aviao->pista_alocada);
@@ -103,11 +94,11 @@ int desembarque_internacional(Aviao* aviao, SimulacaoAeroporto* sim) {
     log_evento_ui(sim, "ID %d (INTL) obteve Torre. Desembarcando...", aviao->id);
 
     atualizar_estado_aviao(aviao, DESEMBARCANDO);
-    dormir_operacao(3000, 6000);
+    dormir_operacao_com_pausa(sim, 3000, 6000);
 
     liberar_torre(sim, aviao->id);
     log_evento_ui(sim, "ID %d (INTL) liberou Torre. Finalizando desembarque...", aviao->id);
-    dormir_operacao(1000, 2000);
+    dormir_operacao_com_pausa(sim, 1000, 2000);
 
     liberar_portao(sim, aviao->id, aviao->portao_alocado);
     log_evento_ui(sim, "ID %d (INTL) | Desembarque concluído. Portão %d liberado.", aviao->id, aviao->portao_alocado);
@@ -169,7 +160,7 @@ int decolagem_internacional(Aviao* aviao, SimulacaoAeroporto* sim) {
     log_evento_ui(sim, "ID %d (INTL) obteve todos os recursos. Decolando...", aviao->id);
 
     atualizar_estado_aviao(aviao, DECOLANDO);
-    dormir_operacao(2000, 4000);
+    dormir_operacao_com_pausa(sim, 2000, 4000);
 
     liberar_portao(sim, aviao->id, aviao->portao_alocado);
     liberar_pista(sim, aviao->id, aviao->pista_alocada);
@@ -227,6 +218,9 @@ void* thread_aviao(void* arg) {
     int sucesso = 0;
 
     // ----- 1. FASE DE POUSO -----
+    verificar_pausa(sim); // Check for pause before starting
+    if (!sim->ativa) { free(args); return NULL; } // Exit if simulation stopped
+    
     atualizar_estado_aviao(aviao, AGUARDANDO_POUSO);
     if (aviao->tipo == VOO_INTERNACIONAL) {
         sucesso = pouso_internacional(aviao, sim);
@@ -240,6 +234,9 @@ void* thread_aviao(void* arg) {
     }
 
     // ----- 2. FASE DE DESEMBARQUE -----
+    verificar_pausa(sim); // Check for pause before desembarque
+    if (!sim->ativa) { free(args); return NULL; } // Exit if simulation stopped
+    
     atualizar_estado_aviao(aviao, AGUARDANDO_DESEMBARQUE);
     if (aviao->tipo == VOO_INTERNACIONAL) {
         sucesso = desembarque_internacional(aviao, sim);
@@ -253,6 +250,9 @@ void* thread_aviao(void* arg) {
     }
 
     // ----- 3. FASE DE DECOLAGEM -----
+    verificar_pausa(sim); // Check for pause before decolagem
+    if (!sim->ativa) { free(args); return NULL; } // Exit if simulation stopped
+    
     atualizar_estado_aviao(aviao, AGUARDANDO_DECOLAGEM);
     if (aviao->tipo == VOO_INTERNACIONAL) {
         sucesso = decolagem_internacional(aviao, sim);
@@ -279,6 +279,11 @@ void* criador_avioes(void* arg) {
     int proximo_id = 1;
 
     while (sim->ativa) {
+        
+        verificar_pausa(sim);
+        
+        if (!sim->ativa) break;
+        
         usleep((rand() % 2000 + 500) * 1000); // Cria um avião a cada 0.5-2.5 segundos
 
         pthread_mutex_lock(&sim->mutex_simulacao);
@@ -332,4 +337,13 @@ void* criador_avioes(void* arg) {
     }
 
     return NULL;
+}
+
+// ISSO AQUI PODE VIRAR UTILS?
+void verificar_pausa(SimulacaoAeroporto* sim) {
+    pthread_mutex_lock(&sim->mutex_pausado);
+    while (sim->pausado && sim->ativa) {
+        pthread_cond_wait(&sim->cond_pausado, &sim->mutex_pausado);
+    }
+    pthread_mutex_unlock(&sim->mutex_pausado);
 }

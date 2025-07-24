@@ -35,7 +35,7 @@ void init_terminal_ncurses() {
     log_win = newwin(main_height, log_width, header_height, 0);
     info_win = newwin(main_height, info_width, header_height, log_width);
 
-    scrollok(log_win, TRUE); // Habilita rolagem para o log
+    scrollok(log_win, TRUE);
     clear();
     refresh();
 }
@@ -78,8 +78,11 @@ void update_terminal_display(SimulacaoAeroporto* sim) {
     box(header_win, 0, 0);
     time_t tempo_atual = time(NULL);
     int tempo_decorrido = difftime(tempo_atual, sim->tempo_inicio);
-    mvwprintw(header_win, 1, 2, "SIMULACAO DE TRAFEGO AEREO | Tempo: %d/%d s | Voos Ativos: %d |", 
-              tempo_decorrido, sim->tempo_simulacao, voos_ativos);
+    
+    // Show pause status in header
+    const char* status_sim = sim->ativa ? (sim->pausado ? "PAUSADA" : "ATIVA") : "FINALIZANDO";
+    mvwprintw(header_win, 1, 2, "SIMULACAO DE TRAFEGO AEREO | Tempo: %d/%d s | Voos Ativos: %d | Status: %s", 
+              tempo_decorrido, sim->tempo_simulacao, voos_ativos, status_sim);
     wrefresh(header_win);
 
     // ---- Painel de Status (Inferior) para Pistas e Portões ----
