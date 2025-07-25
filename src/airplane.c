@@ -14,11 +14,12 @@ Aviao* criar_aviao(int id, TipoVoo tipo) {
     aviao->tipo = tipo;
     aviao->estado = AGUARDANDO_POUSO;
     aviao->tempo_criacao = time(NULL);
-    aviao->tempo_inicio_espera = 0;
+    aviao->chegada_na_fila = time(NULL); 
     aviao->thread_id = 0;
     aviao->pista_alocada = -1;
     aviao->portao_alocado = -1;
     aviao->torre_alocada = -1;
+
 
     return aviao;
 }
@@ -269,6 +270,8 @@ void* thread_aviao(void* arg) {
     if (!sim->ativa) { free(args); return NULL; } // Exit if simulation stopped
     
     atualizar_estado_aviao(aviao, AGUARDANDO_POUSO);
+    aviao->tempo_inicio_espera = time(NULL);
+    log_evento_ui(sim, "ID %d está aguardando pouso.", aviao->id);
     if (aviao->tipo == VOO_INTERNACIONAL) {
         sucesso = pouso_internacional(aviao, sim);
     } else {
@@ -285,6 +288,7 @@ void* thread_aviao(void* arg) {
     if (!sim->ativa) { free(args); return NULL; } // Exit if simulation stopped
     
     atualizar_estado_aviao(aviao, AGUARDANDO_DESEMBARQUE);
+    aviao->chegada_na_fila = time(NULL);
     if (aviao->tipo == VOO_INTERNACIONAL) {
         sucesso = desembarque_internacional(aviao, sim);
     } else {
@@ -297,10 +301,12 @@ void* thread_aviao(void* arg) {
     }
 
     // ----- 3. FASE DE DECOLAGEM -----
-    verificar_pausa(sim); // Check for pause before decolagem
-    if (!sim->ativa) { free(args); return NULL; } // Exit if simulation stopped
+    verificar_pausa(sim);
+    if (!sim->ativa) { free(args); return NULL; }
     
     atualizar_estado_aviao(aviao, AGUARDANDO_DECOLAGEM);
+    aviao->tempo_inicio_espera = time(NULL);
+    aviao->chegada_na_fila = time(NULL); // Atualizar tempo de chegada na nova fila
     if (aviao->tipo == VOO_INTERNACIONAL) {
         sucesso = decolagem_internacional(aviao, sim);
     } else {

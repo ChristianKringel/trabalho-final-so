@@ -1,7 +1,5 @@
-// main.c
-#include "libs.h" // Ou simulador.h
+#include "libs.h"
 
-// Função que será executada pela thread da UI
 void* ui_thread_func(void* arg) {
     SimulacaoAeroporto* sim = (SimulacaoAeroporto*)arg;
     
@@ -30,8 +28,8 @@ int main(int argc, char *argv[]) {
     int max_avioes = 30;
 
     bool pause_simulation = false; 
-    //UIViewMode modo_ui = UI_VISUAL;
 
+    //setlocale(LC_ALL, ""); 
     srand(time(NULL));
 
     SimulacaoAeroporto* sim = inicializar_simulacao(num_pistas, num_portoes, num_torres, tempo_total_sim, max_avioes);

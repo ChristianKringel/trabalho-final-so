@@ -12,9 +12,7 @@
 #include <ncurses.h>
 #include <stdarg.h> 
 #include <ctype.h>
-
-
-//#include "structs.h" // RECOMENDAÇÃO: Mova todas as suas structs para um arquivo separado
+//#include <locale.h>
 
 #define LIBS_H
 
@@ -74,6 +72,7 @@ typedef struct {
     time_t tempo_criacao;
     time_t tempo_inicio_espera;
     time_t tempo_fim_operacao;
+    time_t chegada_na_fila;
     pthread_t thread_id;
     int pista_alocada;
     int portao_alocado;
