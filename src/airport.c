@@ -80,7 +80,7 @@ int solicitar_torre(SimulacaoAeroporto* sim, int id_aviao, TipoVoo tipo) {
     recursos->torres_disponiveis--;
     
     if (id_aviao > 0 && id_aviao <= sim->max_avioes) {
-        sim->avioes[id_aviao - 1].usando_torre = 1;
+        sim->avioes[id_aviao - 1].torre_alocada = 1;
     }
     
     //printf("Avião %d do tipo %d solicitou uma torre. Torres disponíveis: %d\n", id_aviao, tipo, recursos->torres_disponiveis);
@@ -94,7 +94,7 @@ void liberar_torre(SimulacaoAeroporto* sim, int id_aviao) {
     pthread_mutex_lock(&recursos->mutex_torres);
     
     if (id_aviao > 0 && id_aviao <= sim->max_avioes) {
-        sim->avioes[id_aviao - 1].usando_torre = 0;
+        sim->avioes[id_aviao - 1].torre_alocada = 0;
     }
     
     recursos->torres_disponiveis++;

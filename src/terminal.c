@@ -222,7 +222,7 @@ static void draw_status_panel(SimulacaoAeroporto* sim) {
         
         // Procurar por aviões que estão em estados que usam torre
         for (int j = 0; j < sim->metricas.total_avioes_criados; j++) {
-            if (sim->avioes[j].id > 0 && sim->avioes[j].usando_torre && 
+            if (sim->avioes[j].id > 0 && sim->avioes[j].torre_alocada && 
                 (sim->avioes[j].estado == POUSANDO || sim->avioes[j].estado == DESEMBARCANDO || sim->avioes[j].estado == DECOLANDO)) {
                 if (!torre_ocupada) { 
                     torre_ocupada = true;
