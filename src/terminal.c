@@ -20,7 +20,7 @@ static WINDOW *header_win, *airspace_win, *status_panel_win, *fids_win, *log_win
 
 static void init_colors();
 static void draw_header(SimulacaoAeroporto* sim, int voos_ativos);
-static void draw_airspace_ticker(SimulacaoAeroporto* sim);
+static void draw_airspace_panel(SimulacaoAeroporto* sim);
 static void draw_status_panel(SimulacaoAeroporto* sim);
 static void draw_fids_panel(SimulacaoAeroporto* sim, int voos_ativos);
 const char* estado_para_str(EstadoAviao estado);
@@ -99,7 +99,7 @@ void update_terminal_display(SimulacaoAeroporto* sim) {
     }
 
     draw_header(sim, voos_ativos);
-    draw_airspace_ticker(sim);
+    draw_airspace_panel(sim);
     draw_status_panel(sim);
     draw_fids_panel(sim, voos_ativos);
 
@@ -119,7 +119,8 @@ static void draw_header(SimulacaoAeroporto* sim, int voos_ativos) {
     int torres_ocupadas = sim->recursos.total_torres - sim->recursos.torres_disponiveis;
     const char* status_sim = sim->ativa ? (sim->pausado ? "PAUSADO" : "ATIVA") : "FINALIZANDO";
 
-    mvwprintw(header_win, 0, 1, "SIMULACAO: %-9s | Tempo: %03d/%ds | Voos: %-2d | Pistas: %d/%d | Portoes: %d/%d | Torres: %d/%d",
+    //ARRUMAR CONTAGEM DE TEMPO 
+    mvwprintw(header_win, 0, 1, "SIMULACAO TRAFEGO AEROPORTO: %-9s | Tempo: %03d/%ds | Voos: %-2d | Pistas: %d/%d | Portoes: %d/%d | Torres: %d/%d",
               status_sim, (int)difftime(time(NULL), sim->tempo_inicio), sim->tempo_simulacao,
               voos_ativos, pistas_ocupadas, sim->recursos.total_pistas, portoes_ocupados, sim->recursos.total_portoes, torres_ocupadas, sim->recursos.total_torres);
               
@@ -127,11 +128,11 @@ static void draw_header(SimulacaoAeroporto* sim, int voos_ativos) {
     wrefresh(header_win);
 }
 
-static void draw_airspace_ticker(SimulacaoAeroporto* sim) {
+static void draw_airspace_panel(SimulacaoAeroporto* sim) {
     wclear(airspace_win);
     
     box(airspace_win, 0, 0);
-    mvwprintw(airspace_win, 0, 2, "[FILA DE ESPERA AEREA]");
+    mvwprintw(airspace_win, 0, 2, "[AIRSPACE]");
     
     int col_atual = 2;
 
@@ -167,9 +168,13 @@ static void draw_airspace_ticker(SimulacaoAeroporto* sim) {
 static void draw_status_panel(SimulacaoAeroporto* sim) {
     wclear(status_panel_win);
     box(status_panel_win, 0, 0);
+    mvwprintw(status_panel_win, 0, 2, "[AIRPORT STATUS]");
     
     // Seção Pistas
-    mvwprintw(status_panel_win, 1, 2, "[PISTAS]");
+    mvwhline(status_panel_win, 1, 2, ACS_HLINE, getmaxx(status_panel_win) - 4);
+    mvwprintw(status_panel_win, 2, 2, "[PISTAS]");
+    
+    int linha_pistas = 3;
     for (int i = 0; i < sim->recursos.total_pistas; i++) {
         int aviao_id = sim->recursos.pista_ocupada_por[i];
         if (aviao_id != -1) {
@@ -179,17 +184,19 @@ static void draw_status_panel(SimulacaoAeroporto* sim) {
             int color_pair = sim->avioes[aviao_id-1].tipo == VOO_DOMESTICO ? COLOR_PAIR_DOM : COLOR_PAIR_INTL;
             
             wattron(status_panel_win, COLOR_PAIR(color_pair));
-            mvwprintw(status_panel_win, 2 + i, 2, "P%d: [%s] %-14s", i, id_str, estado_para_str(sim->avioes[aviao_id - 1].estado));
+            mvwprintw(status_panel_win, linha_pistas + i, 2, "P%d: [%s] %-14s", i, id_str, estado_para_str(sim->avioes[aviao_id - 1].estado));
             wattroff(status_panel_win, COLOR_PAIR(color_pair));
         } else {
             wattron(status_panel_win, COLOR_PAIR(COLOR_PAIR_SUCCESS));
-            mvwprintw(status_panel_win, 2 + i, 2, "P%d: [LIVRE]", i);
+            mvwprintw(status_panel_win, linha_pistas + i, 2, "P%d: [LIVRE]", i);
             wattroff(status_panel_win, COLOR_PAIR(COLOR_PAIR_SUCCESS));
         }
     }
 
+    mvwhline(status_panel_win, linha_pistas + sim->recursos.total_pistas, 2, ACS_HLINE, getmaxx(status_panel_win) - 4);
+
     // Seção Portões
-    int linha_portoes = 2 + sim->recursos.total_pistas + 1;
+    int linha_portoes = linha_pistas + sim->recursos.total_pistas + 1;
     mvwprintw(status_panel_win, linha_portoes, 2, "[PORTOES]");
     for (int i = 0; i < sim->recursos.total_portoes; i++) {
         int aviao_id = sim->recursos.portao_ocupado_por[i];
@@ -208,6 +215,8 @@ static void draw_status_panel(SimulacaoAeroporto* sim) {
             wattroff(status_panel_win, COLOR_PAIR(COLOR_PAIR_SUCCESS));
         }
     }
+
+    mvwhline(status_panel_win, linha_portoes + 1 + sim->recursos.total_portoes, 2, ACS_HLINE, getmaxx(status_panel_win) - 4);
 
     // Seção Torres
     int linha_torres = linha_portoes + 1 + sim->recursos.total_portoes + 1;
@@ -248,6 +257,8 @@ static void draw_status_panel(SimulacaoAeroporto* sim) {
         }
     }
 
+    mvwhline(status_panel_win, linha_torres + 1 + sim->recursos.total_torres, 2, ACS_HLINE, getmaxx(status_panel_win) - 4);
+
     // Secao Legendas
     int linha_legendas = linha_torres + 1 + sim->recursos.total_torres + 1;
     mvwprintw(status_panel_win, linha_legendas, 2, "[LEGENDA]");
@@ -274,11 +285,12 @@ static void draw_fids_panel(SimulacaoAeroporto* sim, int voos_ativos) {
     mvwprintw(fids_win, 0, 2, "[FLIGHT INFORMATION DISPLAY SYSTEM]");
     
     wattron(fids_win, A_BOLD);
-    mvwprintw(fids_win, 1, 2, " Voo | Estado             | Recursos | Espera");
+    mvwhline(fids_win, 1, 2, ACS_HLINE, getmaxx(fids_win) - 4);
+    mvwprintw(fids_win, 2, 2, " Voo | Estado             | Recursos | Espera");
     wattroff(fids_win, A_BOLD);
-    mvwhline(fids_win, 2, 2, ACS_HLINE, getmaxx(fids_win) - 4);
+    mvwhline(fids_win, 3, 2, ACS_HLINE, getmaxx(fids_win) - 4);
 
-    int linha_atual = 3;
+    int linha_atual = 4;
     int max_linhas = getmaxy(fids_win) - 1;
 
     for (int i = 0; i < sim->metricas.total_avioes_criados && linha_atual < max_linhas; i++) {
