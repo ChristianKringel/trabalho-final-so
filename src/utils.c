@@ -6,15 +6,20 @@ void finalizar_simulacao(SimulacaoAeroporto* sim) {
         return; 
     }
 
+
     sim->ativa = 0;
+    
+
     pthread_mutex_lock(&sim->mutex_simulacao);
     pthread_cond_broadcast(&sim->recursos.cond_pistas);
     pthread_cond_broadcast(&sim->recursos.cond_portoes);
     pthread_cond_broadcast(&sim->recursos.cond_torres);
     pthread_mutex_unlock(&sim->mutex_simulacao);
     
-    // Also signal any threads waiting on pause condition
+
     pthread_mutex_lock(&sim->mutex_pausado);
+    sim->pausado = false;
+    
     pthread_cond_broadcast(&sim->cond_pausado);
     pthread_mutex_unlock(&sim->mutex_pausado);
 }

@@ -4,9 +4,16 @@ int solicitar_pista(SimulacaoAeroporto* sim, int id_aviao, TipoVoo tipo) {
     RecursosAeroporto* recursos = &sim->recursos;
     pthread_mutex_lock(&recursos->mutex_pistas);
     
-    while (recursos->pistas_disponiveis <= 0) {
+    while (recursos->pistas_disponiveis <= 0 && sim->ativa) {
         pthread_cond_wait(&recursos->cond_pistas, &recursos->mutex_pistas);
     }
+    
+    // PODE VIRAR FUNCAO
+    if (!sim->ativa) {
+        pthread_mutex_unlock(&recursos->mutex_pistas);
+        return -1;
+    }
+    
     int pista_idx = -1;
     for (int i = 0; i < recursos->total_pistas; i++) {
         if (recursos->pista_ocupada_por[i] == -1) {
@@ -38,8 +45,13 @@ int solicitar_portao(SimulacaoAeroporto* sim, int id_aviao, TipoVoo tipo) {
     RecursosAeroporto* recursos = &sim->recursos;
     pthread_mutex_lock(&recursos->mutex_portoes);
     
-    while (recursos->portoes_disponiveis <= 0) {
+    while (recursos->portoes_disponiveis <= 0 && sim->ativa) {
         pthread_cond_wait(&recursos->cond_portoes, &recursos->mutex_portoes);
+    }
+    
+    if (!sim->ativa) {
+        pthread_mutex_unlock(&recursos->mutex_portoes);
+        return -1;
     }
     
     int portao_idx = -1;
@@ -73,8 +85,13 @@ int solicitar_torre(SimulacaoAeroporto* sim, int id_aviao, TipoVoo tipo) {
     RecursosAeroporto* recursos = &sim->recursos;
     pthread_mutex_lock(&recursos->mutex_torres);
     
-    while (recursos->torres_disponiveis <= 0) {
+    while (recursos->torres_disponiveis <= 0 && sim->ativa) {
         pthread_cond_wait(&recursos->cond_torres, &recursos->mutex_torres);
+    }
+    
+    if (!sim->ativa) {
+        pthread_mutex_unlock(&recursos->mutex_torres);
+        return -1;
     }
     
     recursos->torres_disponiveis--;

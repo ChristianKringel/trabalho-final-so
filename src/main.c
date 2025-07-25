@@ -83,6 +83,17 @@ int main(int argc, char *argv[]) {
 
     pthread_join(criador_avioes_thread_id, NULL);
     pthread_join(ui_thread_id, NULL);
+    
+
+    log_evento_ui(sim, "Aguardando finalização de todos os voos...");
+    for (int i = 0; i < sim->metricas.total_avioes_criados; i++) {
+        if (sim->avioes[i].id > 0 && sim->avioes[i].thread_id != 0) {
+            pthread_join(sim->avioes[i].thread_id, NULL);
+        }
+    }
+
+    usleep(100000);
+    
     pthread_mutex_destroy(&sim->mutex_pausado);
     pthread_cond_destroy(&sim->cond_pausado);
 
