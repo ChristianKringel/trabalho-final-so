@@ -192,7 +192,7 @@ void init_terminal_ncurses();
 void close_terminal_ncurses();
 void update_terminal_display(SimulacaoAeroporto* sim);
 
-void log_evento_ui(SimulacaoAeroporto* sim, const char* formato, ...);
+void log_evento_ui(SimulacaoAeroporto* sim, Aviao* aviao, const char* formato, ...);
 #endif
 
 

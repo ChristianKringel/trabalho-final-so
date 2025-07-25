@@ -18,13 +18,23 @@ static WINDOW *header_win, *airspace_win, *status_panel_win, *fids_win, *log_win
 #define FIDS_WIDTH (COLS - STATUS_WIDTH - LOG_WIDTH)
 #define MAIN_HEIGHT (LINES - HEADER_HEIGHT - AIRSPACE_HEIGHT)
 
+typedef enum {
+    PAIR_DEFAULT = 1,
+    PAIR_HEADER,
+    PAIR_DOMESTIC,
+    PAIR_INTERNATIONAL,
+    PAIR_SUCCESS,
+    PAIR_WARNING,
+    PAIR_DANGER
+} ColorPairs;
+
 static void init_colors();
 static void draw_header(SimulacaoAeroporto* sim, int voos_ativos);
 static void draw_airspace_panel(SimulacaoAeroporto* sim);
 static void draw_status_panel(SimulacaoAeroporto* sim);
 static void draw_fids_panel(SimulacaoAeroporto* sim, int voos_ativos);
 const char* estado_para_str(EstadoAviao estado);
-void initialize_windows();
+void init_windows();
 
 void init_terminal_ncurses() {
     initscr();
@@ -39,7 +49,6 @@ void init_terminal_ncurses() {
         printf("Seu terminal nao suporta cores.\n");
         exit(1);
     }
-    start_color();
     init_colors();
 
     if (LINES < 24 || COLS < 120) {
@@ -58,12 +67,13 @@ void init_terminal_ncurses() {
     int main_height = LINES - header_height - airspace_height;
 
     // --- Criação das Janelas ---
-    initialize_windows();
+    init_windows();
 
     clear();
     refresh();
 }
-void initialize_windows(){
+
+void init_windows(){
     header_win = newwin(HEADER_HEIGHT, COLS, 0, 0);
     airspace_win = newwin(AIRSPACE_HEIGHT, COLS, HEADER_HEIGHT, 0);
     status_panel_win = newwin(MAIN_HEIGHT, STATUS_WIDTH, HEADER_HEIGHT + AIRSPACE_HEIGHT, 0);
@@ -76,18 +86,39 @@ void initialize_windows(){
     wrefresh(log_win);
 }
 
-static void init_colors() {
-    init_pair(COLOR_PAIR_DEFAULT, COLOR_WHITE, COLOR_BLACK);
-    init_pair(COLOR_PAIR_HEADER, COLOR_BLACK, COLOR_WHITE);
-    init_pair(COLOR_PAIR_INTL, COLOR_YELLOW, COLOR_BLACK);
-    init_pair(COLOR_PAIR_DOM, COLOR_CYAN, COLOR_BLACK);
-    init_pair(COLOR_PAIR_ALERT, COLOR_WHITE, COLOR_RED);
-    init_pair(COLOR_PAIR_SUCCESS, COLOR_GREEN, COLOR_BLACK);
+void close_terminal_ncurses() {
+    if (header_win)         delwin(header_win);
+    if (airspace_win)       delwin(airspace_win);
+    if (status_panel_win)   delwin(status_panel_win);
+    if (fids_win)           delwin(fids_win);
+    if (log_win)            delwin(log_win);
+    endwin();
 }
 
-// =================================================================
-// FUNÇÃO GERENTE PRINCIPAL
-// =================================================================
+const char* estado_para_str(EstadoAviao estado) {
+    switch (estado) {
+        case AGUARDANDO_POUSO:          return "Aguard. Pouso";
+        case POUSANDO:                  return "Pousando";
+        case AGUARDANDO_DESEMBARQUE:    return "Aguard. Desemb.";
+        case DESEMBARCANDO:             return "Desembarcando";
+        case AGUARDANDO_DECOLAGEM:      return "Aguard. Decol.";
+        case DECOLANDO:                 return "Decolando";
+        case FINALIZADO_SUCESSO:        return "Finalizado";
+        default:                        return "Falha";
+    }
+}
+
+static void init_colors() {
+    start_color();
+    init_pair(PAIR_DEFAULT, COLOR_WHITE, COLOR_BLACK);
+    init_pair(PAIR_HEADER, COLOR_BLACK, COLOR_WHITE);
+    init_pair(PAIR_DOMESTIC, COLOR_CYAN, COLOR_BLACK);
+    init_pair(PAIR_INTERNATIONAL, COLOR_YELLOW, COLOR_BLACK);
+    init_pair(PAIR_SUCCESS, COLOR_GREEN, COLOR_BLACK);
+    init_pair(PAIR_WARNING, COLOR_YELLOW, COLOR_BLACK);
+    init_pair(PAIR_DANGER, COLOR_RED, COLOR_BLACK);
+}
+
 void update_terminal_display(SimulacaoAeroporto* sim) {
     if (!sim) return;
 
@@ -105,10 +136,6 @@ void update_terminal_display(SimulacaoAeroporto* sim) {
 
     doupdate();
 }
-
-// =================================================================
-// IMPLEMENTAÇÃO DAS FUNÇÕES DE DESENHO
-// =================================================================
 
 static void draw_header(SimulacaoAeroporto* sim, int voos_ativos) {
     wbkgd(header_win, COLOR_PAIR(COLOR_PAIR_HEADER));
@@ -163,7 +190,6 @@ static void draw_airspace_panel(SimulacaoAeroporto* sim) {
     mvwprintw(airspace_win, 0, 19, "(Total: %d)", total_aguardando);
     wrefresh(airspace_win);
 }
-
 
 static void draw_status_panel(SimulacaoAeroporto* sim) {
     wclear(status_panel_win);
@@ -328,10 +354,7 @@ static void draw_fids_panel(SimulacaoAeroporto* sim, int voos_ativos) {
     wrefresh(fids_win);
 }
 
-// =================================================================
-// FUNÇÃO DE LOG (ASSÍNCRONA)
-// =================================================================
-void log_evento_ui(SimulacaoAeroporto* sim, const char* formato, ...) {
+void log_evento_ui(SimulacaoAeroporto* sim, Aviao* aviao, const char* formato, ...) {
     if (!sim || !log_win || !formato) return;
     char buffer[256];
     va_list args;
@@ -343,7 +366,30 @@ void log_evento_ui(SimulacaoAeroporto* sim, const char* formato, ...) {
         wscrl(log_win, 1);
 
         int y = getmaxy(log_win) - 2;
-        mvwprintw(log_win, y, 1, ">> %s", buffer);
+        int x = 2;
+        int tempo_decorrido = difftime(time(NULL), sim->tempo_inicio);
+        mvwprintw(log_win, y, x, "[%03ds] ", tempo_decorrido);
+        x += 8;
+        if (aviao != NULL) {
+            int color_pair = (aviao->tipo == VOO_DOMESTICO) ? PAIR_DOMESTIC : PAIR_INTERNATIONAL;
+            char prefix[6];
+            snprintf(prefix, sizeof(prefix), "%c%02d", (aviao->tipo == VOO_DOMESTICO) ? 'D' : 'I', aviao->id);
+            
+            wattron(log_win, COLOR_PAIR(color_pair) | A_BOLD);
+            mvwprintw(log_win, y, x, "%s", prefix);
+            wattroff(log_win, COLOR_PAIR(color_pair) | A_BOLD);
+            x += strlen(prefix);
+            
+            mvwprintw(log_win, y, x, " | %s", buffer);
+
+        } else {
+            wattron(log_win, COLOR_PAIR(PAIR_SUCCESS) | A_BOLD);
+            mvwprintw(log_win, y, x, "[SYSTEM]");
+            wattroff(log_win, COLOR_PAIR(PAIR_SUCCESS) | A_BOLD);
+            x += 8;
+            
+            mvwprintw(log_win, y, x, " | %s", buffer);
+        }
         wclrtoeol(log_win);
         
         box(log_win, 0, 0);
@@ -354,24 +400,5 @@ void log_evento_ui(SimulacaoAeroporto* sim, const char* formato, ...) {
     pthread_mutex_unlock(&sim->mutex_ui_log);
 }
 
-void close_terminal_ncurses() {
-    if (header_win) delwin(header_win);
-    if (airspace_win) delwin(airspace_win);
-    if (status_panel_win) delwin(status_panel_win);
-    if (fids_win) delwin(fids_win);
-    if (log_win) delwin(log_win);
-    endwin();
-}
 
-const char* estado_para_str(EstadoAviao estado) {
-    switch (estado) {
-        case AGUARDANDO_POUSO:          return "Aguard. Pouso";
-        case POUSANDO:                  return "Pousando";
-        case AGUARDANDO_DESEMBARQUE:    return "Aguard. Desemb.";
-        case DESEMBARCANDO:             return "Desembarcando";
-        case AGUARDANDO_DECOLAGEM:      return "Aguard. Decol.";
-        case DECOLANDO:                 return "Decolando";
-        case FINALIZADO_SUCESSO:        return "Finalizado";
-        default:                        return "Falha";
-    }
-}
+
