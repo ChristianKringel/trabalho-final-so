@@ -258,6 +258,14 @@ int decolagem_domestico(Aviao* aviao, SimulacaoAeroporto* sim) {
 }
 
 // ======================= THREADS PRINCIPAIS =======================
+// ISSO AQUI PODE VIRAR UTILS?
+void verificar_pausa(SimulacaoAeroporto* sim) {
+    pthread_mutex_lock(&sim->mutex_pausado);
+    while (sim->pausado && sim->ativa) {
+        pthread_cond_wait(&sim->cond_pausado, &sim->mutex_pausado);
+    }
+    pthread_mutex_unlock(&sim->mutex_pausado);
+}
 
 void* thread_aviao(void* arg) {
     ThreadArgs* args = (ThreadArgs*)arg;
@@ -266,7 +274,7 @@ void* thread_aviao(void* arg) {
     int sucesso = 0;
 
     // ----- 1. FASE DE POUSO -----
-    verificar_pausa(sim); // Check for pause before starting
+    verificar_pausa(sim);
     if (!sim->ativa) { free(args); return NULL; } // Exit if simulation stopped
     
     atualizar_estado_aviao(aviao, AGUARDANDO_POUSO);
@@ -392,11 +400,3 @@ void* criador_avioes(void* arg) {
     return NULL;
 }
 
-// ISSO AQUI PODE VIRAR UTILS?
-void verificar_pausa(SimulacaoAeroporto* sim) {
-    pthread_mutex_lock(&sim->mutex_pausado);
-    while (sim->pausado && sim->ativa) {
-        pthread_cond_wait(&sim->cond_pausado, &sim->mutex_pausado);
-    }
-    pthread_mutex_unlock(&sim->mutex_pausado);
-}
