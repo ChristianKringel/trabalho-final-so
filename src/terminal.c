@@ -132,7 +132,7 @@ static void draw_airspace_panel(SimulacaoAeroporto* sim) {
     wclear(airspace_win);
     
     box(airspace_win, 0, 0);
-    mvwprintw(airspace_win, 0, 2, "[AIRSPACE]");
+    mvwprintw(airspace_win, 0, 2, "[AIRSPACE QUEUE]");
     
     int col_atual = 2;
 
@@ -160,7 +160,7 @@ static void draw_airspace_panel(SimulacaoAeroporto* sim) {
     if (avioes_mostrados < total_aguardando) {
         mvwprintw(airspace_win, 1, col_atual, "... ");
     }
-    mvwprintw(airspace_win, 0, 25, "(Total: %d)", total_aguardando);
+    mvwprintw(airspace_win, 0, 19, "(Total: %d)", total_aguardando);
     wrefresh(airspace_win);
 }
 
