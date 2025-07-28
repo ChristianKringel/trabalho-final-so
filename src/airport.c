@@ -1,4 +1,4 @@
-#include "libs.h"
+#include "airport.h"
 
 int solicitar_pista(SimulacaoAeroporto* sim, int id_aviao, TipoVoo tipo) {
     RecursosAeroporto* recursos = &sim->recursos;

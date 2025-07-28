@@ -1,6 +1,4 @@
-#include "libs.h"
 #include "airplane.h"
-
 
 Aviao* criar_aviao(int id, TipoVoo tipo) {
     Aviao* aviao = (Aviao*)malloc(sizeof(Aviao));

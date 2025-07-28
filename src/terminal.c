@@ -1,4 +1,4 @@
-#include "libs.h"
+#include "terminal.h"
 
 static WINDOW *header_win, *airspace_win, *status_panel_win, *fids_win, *log_win;
 

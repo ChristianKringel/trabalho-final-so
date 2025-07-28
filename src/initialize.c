@@ -1,4 +1,4 @@
-#include "libs.h"
+#include "initialize.h"
 
 void inicializar_metricas(MetricasSimulacao* metricas)
 {
