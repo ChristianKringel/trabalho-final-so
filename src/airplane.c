@@ -1,12 +1,6 @@
 #include "libs.h"
-#include "terminal.h"
-#include "initialize.h"
-#include "metrics.h"
 #include "airplane.h"
-#include "airport.h"
-#include "utils.h"
 
-// ======================= FUNÇÕES DE CRIAÇÃO =======================
 
 Aviao* criar_aviao(int id, TipoVoo tipo) {
     Aviao* aviao = (Aviao*)malloc(sizeof(Aviao));
@@ -33,8 +27,6 @@ TipoVoo gerar_tipo_voo_aleatorio() {
     return rand() % 2;
 }
 
-
-// --- POUSO INTERNACIONAL: Pista → Torre ---
 int pouso_internacional(Aviao* aviao, SimulacaoAeroporto* sim) {
     log_evento_ui(sim, aviao, "Pouso: Solicitando Pista.");
     
@@ -67,18 +59,15 @@ int pouso_internacional(Aviao* aviao, SimulacaoAeroporto* sim) {
     return 1;
 }
 
-// --- POUSO DOMÉSTICO: Torre → Pista ---
 int pouso_domestico(Aviao* aviao, SimulacaoAeroporto* sim) {
     log_evento_ui(sim, aviao, "Pouso: Solicitando Torre.");
     
-    // 1. Solicitar torre PRIMEIRO (aguarda até conseguir)
     if (solicitar_torre(sim, aviao->id, aviao->tipo) == -1) { 
         log_evento_ui(sim, aviao, "FALHA ao obter torre.");
         return 0; 
     }
     log_evento_ui(sim, aviao, "Obteve Torre. Solicitando Pista.");
 
-    // 2. Solicitar pista DEPOIS (aguarda até conseguir)
     aviao->pista_alocada = solicitar_pista(sim, aviao->id, aviao->tipo);
     if (aviao->pista_alocada == -1) {
         liberar_torre(sim, aviao->id);
