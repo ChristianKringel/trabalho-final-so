@@ -1,5 +1,7 @@
-#ifndef LIBS_H
+#define _GNU_SOURCE
 #define _POSIX_C_SOURCE 200809L
+#ifndef LIBS_H
+#define LIBS_H
 
 #include <ncurses.h>
 #include <stdio.h>
@@ -9,12 +11,10 @@
 #include <stdbool.h>
 #include <time.h>
 #include <unistd.h>
-#include <ncurses.h>
 #include <stdarg.h> 
 #include <ctype.h>
 //#include <locale.h>
 
-#define LIBS_H
 
 
 #define MAX_PISTAS 3
@@ -117,123 +117,4 @@ typedef struct {
 
 static WINDOW *header_win, *log_win, *info_win, *status_win;
 
-
-// =============== FUNÇÕES DE INICIALIZAÇÃO ===============
-SimulacaoAeroporto* inicializar_simulacao(int pistas, int portoes, int torres, int tempo_simulacao, int max_avioes);
-void inicializar_recursos(RecursosAeroporto* recursos, int pistas, int portoes, int torres);
-void inicializar_metricas(MetricasSimulacao* metricas);
-
-// =============== FUNÇÕES DE GERENCIAMENTO DE RECURSOS ===============
-int solicitar_pista(SimulacaoAeroporto* sim, int id_aviao, TipoVoo tipo);
-void liberar_pista(SimulacaoAeroporto* sim, int id_aviao, int pista_idx);
-int solicitar_portao(SimulacaoAeroporto* sim, int id_aviao, TipoVoo tipo);
-void liberar_portao(SimulacaoAeroporto* sim, int id_aviao, int portao_idx);
-int solicitar_torre(SimulacaoAeroporto* sim, int id_aviao, TipoVoo tipo);
-void liberar_torre(SimulacaoAeroporto* sim, int id_aviao);
-
-// =============== FUNÇÕES DE OPERAÇÕES DE AVIÕES ===============
-void* thread_aviao(void* arg);
-int realizar_pouso(Aviao* aviao, SimulacaoAeroporto* sim);
-int realizar_desembarque(Aviao* aviao, SimulacaoAeroporto* sim);
-int realizar_decolagem(Aviao* aviao, SimulacaoAeroporto* sim);
-
-// =============== FUNÇÕES ESPECÍFICAS POR TIPO DE VOO ===============
-int pouso_internacional(Aviao* aviao, SimulacaoAeroporto* sim);
-int pouso_domestico(Aviao* aviao, SimulacaoAeroporto* sim);
-int desembarque_internacional(Aviao* aviao, SimulacaoAeroporto* sim);
-int desembarque_domestico(Aviao* aviao, SimulacaoAeroporto* sim);
-int decolagem_internacional(Aviao* aviao, SimulacaoAeroporto* sim);
-int decolagem_domestico(Aviao* aviao, SimulacaoAeroporto* sim);
-
-// =============== FUNÇÕES DE MONITORAMENTO ===============
-void* monitor_starvation(void* arg);
-int verificar_starvation(Aviao* aviao, time_t tempo_atual);
-int detectar_deadlock(SimulacaoAeroporto* sim);
-void atualizar_estado_aviao(Aviao* aviao, EstadoAviao novo_estado);
-
-// =============== FUNÇÕES DE MÉTRICAS ===============
-void incrementar_metrica_pouso(MetricasSimulacao* metricas);
-void incrementar_metrica_desembarque(MetricasSimulacao* metricas);
-void incrementar_metrica_decolagem(MetricasSimulacao* metricas);
-void incrementar_aviao_sucesso(MetricasSimulacao* metricas);
-void incrementar_aviao_starvation(MetricasSimulacao* metricas);
-void incrementar_aviao_deadlock(MetricasSimulacao* metricas);
-
-// =============== FUNÇÕES DE CRIAÇÃO DE AVIÕES ===============
-Aviao* criar_aviao(int id, TipoVoo tipo);
-void* criador_avioes(void* arg);
-TipoVoo gerar_tipo_voo_aleatorio();
-
-// =============== FUNÇÕES DE SIMULAÇÃO PRINCIPAL ===============
-void iniciar_simulacao(SimulacaoAeroporto* sim);
-void parar_simulacao(SimulacaoAeroporto* sim);
-int simulacao_ativa(SimulacaoAeroporto* sim);
-
-// =============== FUNÇÕES DE RELATÓRIO ===============
-void imprimir_status_operacao(int id_aviao, TipoVoo tipo, const char* operacao, const char* status);
-void imprimir_status_recursos(RecursosAeroporto* recursos);
-void gerar_relatorio_final(SimulacaoAeroporto* sim);
-void imprimir_resumo_aviao(Aviao* aviao);
-
-// =============== FUNÇÕES DE LIMPEZA ===============
-void finalizar_simulacao(SimulacaoAeroporto* sim);
-void destruir_recursos(RecursosAeroporto* recursos);
-void liberar_memoria(SimulacaoAeroporto* sim);
-
-// =============== FUNÇÕES AUXILIARES ===============
-const char* estado_para_string(EstadoAviao estado);
-const char* tipo_voo_para_string(TipoVoo tipo);
-double calcular_tempo_decorrido(time_t inicio, time_t fim);
-void dormir_operacao(int min_ms, int max_ms);
-void dormir_operacao_com_pausa(SimulacaoAeroporto* sim, int min_ms, int max_ms);
-int gerar_numero_aleatorio(int min, int max);
-
-void init_terminal_ncurses();
-void close_terminal_ncurses();
-void update_terminal_display(SimulacaoAeroporto* sim);
-
-void log_evento_ui(SimulacaoAeroporto* sim, Aviao* aviao, const char* formato, ...);
 #endif
-
-
-
-// // ======================= PROTÓTIPOS DE FUNÇÕES =======================
-
-// // --- De initialize.c ---
-// SimulacaoAeroporto* inicializar_simulacao(int pistas, int portoes, int torres, int tempo_simulacao, int max_avioes);
-
-// // --- De airport.c (Assinaturas Simplificadas e Corrigidas) ---
-// int solicitar_pista(SimulacaoAeroporto* sim, int id_aviao);
-// void liberar_pista(SimulacaoAeroporto* sim, int pista_idx);
-// int solicitar_portao(SimulacaoAeroporto* sim, int id_aviao);
-// void liberar_portao(SimulacaoAeroporto* sim, int portao_idx);
-// int solicitar_torre(SimulacaoAeroporto* sim);
-// void liberar_torre(SimulacaoAeroporto* sim);
-
-// // --- De airplane.c ---
-// void* criador_avioes(void* arg);
-// void* thread_aviao(void* arg);
-
-// // --- De metrics.c ---
-// void inicializar_metricas(MetricasSimulacao* metricas);
-// void incrementar_metrica_pouso(MetricasSimulacao* metricas);
-// void incrementar_metrica_desembarque(MetricasSimulacao* metricas);
-// void incrementar_metrica_decolagem(MetricasSimulacao* metricas);
-// void incrementar_aviao_sucesso(MetricasSimulacao* metricas);
-// void incrementar_aviao_criado(MetricasSimulacao* metricas);
-// // Adicione outros protótipos de métricas aqui...
-
-// // --- De terminal.c ---
-// void init_terminal_ncurses();
-// void close_terminal_ncurses();
-// void update_terminal_display(SimulacaoAeroporto* sim);
-// void log_evento_ui(SimulacaoAeroporto* sim, const char* formato, ...);
-
-// // --- De utils.c ---
-// void atualizar_estado_aviao(Aviao* aviao, EstadoAviao novo_estado);
-// void dormir_operacao(int min_ms, int max_ms);
-// void gerar_relatorio_final(SimulacaoAeroporto* sim);
-// void liberar_memoria(SimulacaoAeroporto* sim);
-// // Adicione outros protótipos de utils aqui...
-
-// #endif // LIBS_H

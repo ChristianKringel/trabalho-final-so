@@ -1,5 +1,10 @@
 #include "libs.h"
-
+#include "terminal.h"
+#include "initialize.h"
+#include "metrics.h"
+#include "airplane.h"
+#include "airport.h"
+#include "utils.h"
 void inicializar_metricas(MetricasSimulacao* metricas)
 {
     if (metricas == NULL) {
