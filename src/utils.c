@@ -1,21 +1,25 @@
 #include "libs.h"
-#include "terminal.h"
-#include "initialize.h"
-#include "metrics.h"
-#include "airplane.h"
-#include "airport.h"
-#include "utils.h"
 
-// =============== FUNCOES DE LIMPEZA ===============
+void atualizar_estado_aviao(Aviao* aviao, EstadoAviao novo_estado) {
+    if (aviao == NULL) {
+        return; 
+    }
+
+    aviao->estado = novo_estado;
+    if (novo_estado == AGUARDANDO_POUSO || novo_estado == AGUARDANDO_DECOLAGEM) {
+        aviao->tempo_inicio_espera = time(NULL);
+    } else if (novo_estado == FINALIZADO_SUCESSO || novo_estado == FALHA_STARVATION || novo_estado == FALHA_DEADLOCK) {
+        aviao->tempo_fim_operacao = time(NULL);
+    }
+}
+
 void finalizar_simulacao(SimulacaoAeroporto* sim) {
     if (sim == NULL) {
         return; 
     }
 
-
     sim->ativa = 0;
     
-
     pthread_mutex_lock(&sim->mutex_simulacao);
     pthread_cond_broadcast(&sim->recursos.cond_pistas);
     pthread_cond_broadcast(&sim->recursos.cond_portoes);
@@ -59,13 +63,6 @@ void liberar_memoria(SimulacaoAeroporto* sim) {
     free(sim);
 }
 
-// // =============== FUNCOES DE MONITORAMENTO ===============
-// void* monitor_starvation(void* arg);
-// int verificar_starvation(Aviao* aviao, time_t tempo_atual);
-// int detectar_deadlock(SimulacaoAeroporto* sim);
-// void atualizar_estado_aviao(Aviao* aviao, EstadoAviao novo_estado);
-
-
 // REVISAR // 
 int verificar_starvation(Aviao* aviao, time_t tempo_atual) {
     if (aviao == NULL) {
@@ -106,27 +103,11 @@ int detectar_deadlock(SimulacaoAeroporto* sim) {
     return 0; 
 }
 
-void atualizar_estado_aviao(Aviao* aviao, EstadoAviao novo_estado) {
-    if (aviao == NULL) {
-        return; 
-    }
-
-    // Simply update the state - no need for complex mutex logic here
-    // The airplane's state changes should be protected by the main simulation mutex
-    aviao->estado = novo_estado;
-    if (novo_estado == AGUARDANDO_POUSO || novo_estado == AGUARDANDO_DECOLAGEM) {
-        aviao->tempo_inicio_espera = time(NULL);
-    } else if (novo_estado == FINALIZADO_SUCESSO || novo_estado == FALHA_STARVATION || novo_estado == FALHA_DEADLOCK) {
-        aviao->tempo_fim_operacao = time(NULL);
-    }
-}
-
-// =============== FUNCOES PARA RELATORIO ===============
-
 void imprimir_status_operacao(int id_aviao, TipoVoo tipo, const char* operacao, const char* status) {
     return; 
     //printf("Avião ID: %d, Tipo: %s, Operação: %s, Status: %s\n", id_aviao, tipo == VOO_DOMESTICO ? "Doméstico" : "Internacional", operacao, status);
 }
+
 void imprimir_status_recursos(RecursosAeroporto* recursos) {
     if (recursos == NULL) {
         return; 
