@@ -13,9 +13,6 @@
 #include <unistd.h>
 #include <stdarg.h> 
 #include <ctype.h>
-//#include <locale.h>
-
-
 
 #define MAX_PISTAS 3
 #define MAX_PORTOES 5
@@ -114,7 +111,5 @@ typedef struct {
     Aviao* aviao;
     SimulacaoAeroporto* sim;
 } ThreadArgs;
-
-static WINDOW *header_win, *log_win, *info_win, *status_win;
 
 #endif
