@@ -1,24 +1,19 @@
 #include "libs.h"
-#include "terminal.h"
-#include "initialize.h"
-#include "metrics.h"
 #include "airplane.h"
-#include "airport.h"
-#include "utils.h"
+#include "terminal.h"
 
 void* ui_thread_func(void* arg) {
     SimulacaoAeroporto* sim = (SimulacaoAeroporto*)arg;
     
     while (sim->ativa) {
-        pthread_mutex_lock(&sim->mutex_simulacao); // Trava para ler o estado
+        pthread_mutex_lock(&sim->mutex_simulacao);
         update_terminal_display(sim);
-        pthread_mutex_unlock(&sim->mutex_simulacao); // Libera
+        pthread_mutex_unlock(&sim->mutex_simulacao); 
         
-        sleep(1); // Update every 1 second instead of 33ms
+        sleep(1);
 
     }
     
-    // Última atualização para mostrar o estado final
     pthread_mutex_lock(&sim->mutex_simulacao);
     update_terminal_display(sim);
     pthread_mutex_unlock(&sim->mutex_simulacao);
@@ -30,12 +25,11 @@ int main(int argc, char *argv[]) {
     int num_pistas = MAX_PISTAS;
     int num_portoes = MAX_PORTOES;
     int num_torres = MAX_TORRES;
-    int tempo_total_sim = 60; // 5 minutos
+    int tempo_total_sim = 60;
     int max_avioes = 30;
 
     bool pause_simulation = false; 
 
-    //setlocale(LC_ALL, ""); 
     srand(time(NULL));
 
     SimulacaoAeroporto* sim = inicializar_simulacao(num_pistas, num_portoes, num_torres, tempo_total_sim, max_avioes);
