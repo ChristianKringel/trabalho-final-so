@@ -25,5 +25,7 @@ void gerar_relatorio_final(SimulacaoAeroporto* sim);
 void imprimir_resumo_aviao(Aviao* aviao);
 
 void atualizar_estado_aviao(Aviao* aviao, EstadoAviao novo_estado);
+void verificar_pausa(SimulacaoAeroporto* sim);
+const char* estado_para_str(EstadoAviao estado);
 
 #endif

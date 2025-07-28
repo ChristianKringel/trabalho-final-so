@@ -204,3 +204,23 @@ void dormir_operacao_com_pausa(SimulacaoAeroporto* sim, int min_ms, int max_ms) 
     }
 }
 
+void verificar_pausa(SimulacaoAeroporto* sim) {
+    pthread_mutex_lock(&sim->mutex_pausado);
+    while (sim->pausado && sim->ativa) {
+        pthread_cond_wait(&sim->cond_pausado, &sim->mutex_pausado);
+    }
+    pthread_mutex_unlock(&sim->mutex_pausado);
+}
+
+const char* estado_para_str(EstadoAviao estado) {
+    switch (estado) {
+        case AGUARDANDO_POUSO:          return "Aguard. Pouso";
+        case POUSANDO:                  return "Pousando";
+        case AGUARDANDO_DESEMBARQUE:    return "Aguard. Desemb.";
+        case DESEMBARCANDO:             return "Desembarcando";
+        case AGUARDANDO_DECOLAGEM:      return "Aguard. Decol.";
+        case DECOLANDO:                 return "Decolando";
+        case FINALIZADO_SUCESSO:        return "Finalizado";
+        default:                        return "Falha";
+    }
+}
