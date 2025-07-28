@@ -1,10 +1,4 @@
 #include "libs.h"
-#include "terminal.h"
-#include "initialize.h"
-#include "metrics.h"
-#include "airplane.h"
-#include "airport.h"
-#include "utils.h"
 
 int solicitar_pista(SimulacaoAeroporto* sim, int id_aviao, TipoVoo tipo) {
     RecursosAeroporto* recursos = &sim->recursos;
