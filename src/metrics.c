@@ -1,10 +1,5 @@
-#include "libs.h"
-#include "terminal.h"
-#include "initialize.h"
 #include "metrics.h"
-#include "airplane.h"
-#include "airport.h"
-#include "utils.h"
+
 void incrementar_metrica_pouso(MetricasSimulacao* metricas) {
     if (metricas == NULL) {
         return; 
