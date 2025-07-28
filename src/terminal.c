@@ -1,6 +1,10 @@
-#include "libs.h" 
-#include <string.h>
-#include <time.h>
+#include "libs.h"
+#include "terminal.h"
+#include "initialize.h"
+#include "metrics.h"
+#include "airplane.h"
+#include "airport.h"
+#include "utils.h"
 
 static WINDOW *header_win, *airspace_win, *status_panel_win, *fids_win, *log_win;
 
@@ -18,13 +22,7 @@ static WINDOW *header_win, *airspace_win, *status_panel_win, *fids_win, *log_win
 #define FIDS_WIDTH (COLS - STATUS_WIDTH - LOG_WIDTH)
 #define MAIN_HEIGHT (LINES - HEADER_HEIGHT - AIRSPACE_HEIGHT)
 
-static void init_colors();
-static void draw_header(SimulacaoAeroporto* sim, int voos_ativos);
-static void draw_airspace_panel(SimulacaoAeroporto* sim);
-static void draw_status_panel(SimulacaoAeroporto* sim);
-static void draw_fids_panel(SimulacaoAeroporto* sim, int voos_ativos);
-const char* estado_para_str(EstadoAviao estado);
-void initialize_windows();
+
 
 void init_terminal_ncurses() {
     initscr();
