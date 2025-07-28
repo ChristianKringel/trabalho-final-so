@@ -1,10 +1,4 @@
 #include "libs.h"
-#include "terminal.h"
-#include "initialize.h"
-#include "metrics.h"
-#include "airplane.h"
-#include "airport.h"
-#include "utils.h"
 
 static WINDOW *header_win, *airspace_win, *status_panel_win, *fids_win, *log_win;
 
@@ -14,14 +8,34 @@ static WINDOW *header_win, *airspace_win, *status_panel_win, *fids_win, *log_win
 #define PAIR_DOM     4
 #define PAIR_ALERT   5
 #define PAIR_SUCCESS 6
-#define PAIR_WARNING 6  // Amarelo para aguardando
+#define PAIR_WARNING 6 
 
 #define HEADER_HEIGHT 1
 #define AIRSPACE_HEIGHT 3
 #define STATUS_WIDTH 28
-#define LOG_WIDTH 105
+#define LOG_WIDTH 96
 #define FIDS_WIDTH (COLS - STATUS_WIDTH - LOG_WIDTH)
 #define MAIN_HEIGHT (LINES - HEADER_HEIGHT - AIRSPACE_HEIGHT)
+
+static void init_colors();
+static void init_windows();
+static void draw_header(SimulacaoAeroporto* sim, int voos_ativos);
+static void draw_airspace_panel(SimulacaoAeroporto* sim);
+static void draw_status_panel(SimulacaoAeroporto* sim);
+static void draw_fids_panel(SimulacaoAeroporto* sim, int voos_ativos);
+
+const char* estado_para_str(EstadoAviao estado) {
+    switch (estado) {
+        case AGUARDANDO_POUSO:          return "Aguard. Pouso";
+        case POUSANDO:                  return "Pousando";
+        case AGUARDANDO_DESEMBARQUE:    return "Aguard. Desemb.";
+        case DESEMBARCANDO:             return "Desembarcando";
+        case AGUARDANDO_DECOLAGEM:      return "Aguard. Decol.";
+        case DECOLANDO:                 return "Decolando";
+        case FINALIZADO_SUCESSO:        return "Finalizado";
+        default:                        return "Falha";
+    }
+}
 
 void init_terminal_ncurses() {
     initscr();
@@ -44,33 +58,17 @@ void init_terminal_ncurses() {
         exit(1);
     }
 
-    // --- Dimensões para o layout "Central de Comando" ---
+    // int header_height = 1;
+    // int airspace_height = 2;
+    // int status_width = 28;
+    // int log_width = 96;
+    // int fids_width = COLS - status_width - log_width;
+    // int main_height = LINES - header_height - airspace_height;
 
-    int header_height = 1;
-    int airspace_height = 2;
-    int status_width = 28;
-    int log_width = 96;
-    int fids_width = COLS - status_width - log_width;
-    int main_height = LINES - header_height - airspace_height;
-
-    // --- Criação das Janelas ---
     init_windows();
 
     clear();
     refresh();
-}
-
-void init_windows(){
-    header_win = newwin(HEADER_HEIGHT, COLS, 0, 0);
-    airspace_win = newwin(AIRSPACE_HEIGHT, COLS, HEADER_HEIGHT, 0);
-    status_panel_win = newwin(MAIN_HEIGHT, STATUS_WIDTH, HEADER_HEIGHT + AIRSPACE_HEIGHT, 0);
-    fids_win = newwin(MAIN_HEIGHT, FIDS_WIDTH, HEADER_HEIGHT + AIRSPACE_HEIGHT, STATUS_WIDTH);
-    log_win = newwin(MAIN_HEIGHT, LOG_WIDTH, HEADER_HEIGHT + AIRSPACE_HEIGHT, STATUS_WIDTH + FIDS_WIDTH);
-    scrollok(log_win, TRUE);
-    wbkgd(log_win, COLOR_PAIR(PAIR_DEFAULT));
-    box(log_win, 0, 0);
-    mvwprintw(log_win, 0, 2, "[LOG]");
-    wrefresh(log_win);
 }
 
 void close_terminal_ncurses() {
@@ -82,17 +80,17 @@ void close_terminal_ncurses() {
     endwin();
 }
 
-const char* estado_para_str(EstadoAviao estado) {
-    switch (estado) {
-        case AGUARDANDO_POUSO:          return "Aguard. Pouso";
-        case POUSANDO:                  return "Pousando";
-        case AGUARDANDO_DESEMBARQUE:    return "Aguard. Desemb.";
-        case DESEMBARCANDO:             return "Desembarcando";
-        case AGUARDANDO_DECOLAGEM:      return "Aguard. Decol.";
-        case DECOLANDO:                 return "Decolando";
-        case FINALIZADO_SUCESSO:        return "Finalizado";
-        default:                        return "Falha";
-    }
+static void init_windows(){
+    header_win = newwin(HEADER_HEIGHT, COLS, 0, 0);
+    airspace_win = newwin(AIRSPACE_HEIGHT, COLS, HEADER_HEIGHT, 0);
+    status_panel_win = newwin(MAIN_HEIGHT, STATUS_WIDTH, HEADER_HEIGHT + AIRSPACE_HEIGHT, 0);
+    fids_win = newwin(MAIN_HEIGHT, FIDS_WIDTH, HEADER_HEIGHT + AIRSPACE_HEIGHT, STATUS_WIDTH);
+    log_win = newwin(MAIN_HEIGHT, LOG_WIDTH, HEADER_HEIGHT + AIRSPACE_HEIGHT, STATUS_WIDTH + FIDS_WIDTH);
+    scrollok(log_win, TRUE);
+    wbkgd(log_win, COLOR_PAIR(PAIR_DEFAULT));
+    box(log_win, 0, 0);
+    mvwprintw(log_win, 0, 2, "[LOG]");
+    wrefresh(log_win);
 }
 
 static void init_colors() {
