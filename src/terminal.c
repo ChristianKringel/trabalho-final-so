@@ -24,18 +24,6 @@ static void draw_airspace_panel(SimulacaoAeroporto* sim);
 static void draw_status_panel(SimulacaoAeroporto* sim);
 static void draw_fids_panel(SimulacaoAeroporto* sim, int voos_ativos);
 
-const char* estado_para_str(EstadoAviao estado) {
-    switch (estado) {
-        case AGUARDANDO_POUSO:          return "Aguard. Pouso";
-        case POUSANDO:                  return "Pousando";
-        case AGUARDANDO_DESEMBARQUE:    return "Aguard. Desemb.";
-        case DESEMBARCANDO:             return "Desembarcando";
-        case AGUARDANDO_DECOLAGEM:      return "Aguard. Decol.";
-        case DECOLANDO:                 return "Decolando";
-        case FINALIZADO_SUCESSO:        return "Finalizado";
-        default:                        return "Falha";
-    }
-}
 
 void init_terminal_ncurses() {
     initscr();

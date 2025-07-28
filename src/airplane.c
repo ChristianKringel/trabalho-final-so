@@ -86,7 +86,6 @@ int pouso_domestico(Aviao* aviao, SimulacaoAeroporto* sim) {
     return 1;
 }
 
-// --- DESEMBARQUE INTERNACIONAL: Portão → Torre ---
 int desembarque_internacional(Aviao* aviao, SimulacaoAeroporto* sim) {
     log_evento_ui(sim, aviao, "Desembarque: Solicitando Portão.");
     
@@ -122,7 +121,6 @@ int desembarque_internacional(Aviao* aviao, SimulacaoAeroporto* sim) {
     return 1;
 }
 
-// --- DESEMBARQUE DOMÉSTICO: Torre → Portão ---
 int desembarque_domestico(Aviao* aviao, SimulacaoAeroporto* sim) {
     log_evento_ui(sim, aviao, "Desembarque: Solicitando Torre.");
     
@@ -157,7 +155,6 @@ int desembarque_domestico(Aviao* aviao, SimulacaoAeroporto* sim) {
     return 1;
 }
 
-// --- DECOLAGEM INTERNACIONAL: Portão → Pista → Torre ---
 int decolagem_internacional(Aviao* aviao, SimulacaoAeroporto* sim) {
     log_evento_ui(sim, aviao, "Decolagem: Solicitando Portão.", aviao->id);
     
@@ -204,18 +201,15 @@ int decolagem_internacional(Aviao* aviao, SimulacaoAeroporto* sim) {
     return 1;
 }
 
-// --- DECOLAGEM DOMÉSTICA: Torre → Portão → Pista ---
 int decolagem_domestico(Aviao* aviao, SimulacaoAeroporto* sim) {
     log_evento_ui(sim, aviao, "Decolagem: Solicitando Torre.");
     
-    // 1. Solicitar torre PRIMEIRO
     if (solicitar_torre(sim, aviao->id, aviao->tipo) == -1) { 
         log_evento_ui(sim, aviao, "FALHA ao obter torre.");
         return 0; 
     }
     log_evento_ui(sim, aviao, "Obteve Torre. Solicitando Portão.");
 
-    // 2. Solicitar portão
     aviao->portao_alocado = solicitar_portao(sim, aviao->id, aviao->tipo);
     if (aviao->portao_alocado == -1) {
         liberar_torre(sim, aviao->id);
@@ -224,7 +218,6 @@ int decolagem_domestico(Aviao* aviao, SimulacaoAeroporto* sim) {
     }
     log_evento_ui(sim, aviao, "Obteve Portão %d. Solicitando Pista.", aviao->portao_alocado);
 
-    // 3. Solicitar pista POR ÚLTIMO
     aviao->pista_alocada = solicitar_pista(sim, aviao->id, aviao->tipo);
     if (aviao->pista_alocada == -1) {
         liberar_torre(sim, aviao->id);
@@ -249,25 +242,15 @@ int decolagem_domestico(Aviao* aviao, SimulacaoAeroporto* sim) {
     return 1;
 }
 
-// ======================= THREADS PRINCIPAIS =======================
-// ISSO AQUI PODE VIRAR UTILS?
-void verificar_pausa(SimulacaoAeroporto* sim) {
-    pthread_mutex_lock(&sim->mutex_pausado);
-    while (sim->pausado && sim->ativa) {
-        pthread_cond_wait(&sim->cond_pausado, &sim->mutex_pausado);
-    }
-    pthread_mutex_unlock(&sim->mutex_pausado);
-}
-
 void* thread_aviao(void* arg) {
     ThreadArgs* args = (ThreadArgs*)arg;
     Aviao* aviao = args->aviao;
     SimulacaoAeroporto* sim = args->sim;
     int sucesso = 0;
 
-    // ----- 1. FASE DE POUSO -----
+
     verificar_pausa(sim);
-    if (!sim->ativa) { free(args); return NULL; } // Exit if simulation stopped
+    if (!sim->ativa) { free(args); return NULL; } 
     
     atualizar_estado_aviao(aviao, AGUARDANDO_POUSO);
     aviao->tempo_inicio_espera = time(NULL);
@@ -283,9 +266,8 @@ void* thread_aviao(void* arg) {
         return NULL;
     }
 
-    // ----- 2. FASE DE DESEMBARQUE -----
-    verificar_pausa(sim); // Check for pause before desembarque
-    if (!sim->ativa) { free(args); return NULL; } // Exit if simulation stopped
+    verificar_pausa(sim);
+    if (!sim->ativa) { free(args); return NULL; } 
     
     atualizar_estado_aviao(aviao, AGUARDANDO_DESEMBARQUE);
     aviao->chegada_na_fila = time(NULL);
@@ -300,7 +282,6 @@ void* thread_aviao(void* arg) {
         return NULL;
     }
 
-    // ----- 3. FASE DE DECOLAGEM -----
     verificar_pausa(sim);
     if (!sim->ativa) { free(args); return NULL; }
     
@@ -318,7 +299,6 @@ void* thread_aviao(void* arg) {
         return NULL;
     }
 
-    // ----- 4. FINALIZAÇÃO -----
     log_evento_ui(sim, aviao, "completou seu ciclo de vida com SUCESSO.");
     atualizar_estado_aviao(aviao, FINALIZADO_SUCESSO);
     incrementar_aviao_sucesso(&sim->metricas);
@@ -347,18 +327,15 @@ void* criador_avioes(void* arg) {
             continue;
         }
 
-        // Encontra um slot de avião vazio (o primeiro, já que o ID é sequencial)
         Aviao* novo_aviao = &sim->avioes[proximo_id - 1];
         
-        // Cria o avião
         TipoVoo tipo = gerar_tipo_voo_aleatorio();
         Aviao* temp_aviao = criar_aviao(proximo_id, tipo);
         if (temp_aviao) {
-            *novo_aviao = *temp_aviao; // Copia os dados
-            free(temp_aviao); // Libera o temporário
+            *novo_aviao = *temp_aviao; 
+            free(temp_aviao);
         }
         
-        // Prepara os argumentos para a thread
         ThreadArgs* args = (ThreadArgs*)malloc(sizeof(ThreadArgs));
         if (!args) {
             perror("Falha ao alocar ThreadArgs");
@@ -368,7 +345,6 @@ void* criador_avioes(void* arg) {
         args->aviao = novo_aviao;
         args->sim = sim;
 
-        // Cria a thread do avião
         if (pthread_create(&novo_aviao->thread_id, NULL, thread_aviao, args) != 0) {
             perror("Falha ao criar a thread do avião");
             free(args);
