@@ -67,11 +67,11 @@ void close_terminal_ncurses() {
 }
 
 static void init_windows(){
-    header_win = newwin(HEADER_HEIGHT, COLS, 0, 0);
-    airspace_win = newwin(AIRSPACE_HEIGHT, COLS, HEADER_HEIGHT, 0);
+    header_win       = newwin(HEADER_HEIGHT, COLS, 0, 0);
+    airspace_win     = newwin(AIRSPACE_HEIGHT, COLS, HEADER_HEIGHT, 0);
     status_panel_win = newwin(MAIN_HEIGHT, STATUS_WIDTH, HEADER_HEIGHT + AIRSPACE_HEIGHT, 0);
-    fids_win = newwin(MAIN_HEIGHT, FIDS_WIDTH, HEADER_HEIGHT + AIRSPACE_HEIGHT, STATUS_WIDTH);
-    log_win = newwin(MAIN_HEIGHT, LOG_WIDTH, HEADER_HEIGHT + AIRSPACE_HEIGHT, STATUS_WIDTH + FIDS_WIDTH);
+    fids_win         = newwin(MAIN_HEIGHT, FIDS_WIDTH, HEADER_HEIGHT + AIRSPACE_HEIGHT, STATUS_WIDTH);
+    log_win          = newwin(MAIN_HEIGHT, LOG_WIDTH, HEADER_HEIGHT + AIRSPACE_HEIGHT, STATUS_WIDTH + FIDS_WIDTH);
     scrollok(log_win, TRUE);
     wbkgd(log_win, COLOR_PAIR(PAIR_DEFAULT));
     box(log_win, 0, 0);
@@ -82,13 +82,18 @@ static void init_windows(){
 static void init_colors() {
     start_color();
     
-    init_pair(PAIR_DEFAULT, COLOR_WHITE, COLOR_BLACK);
-    init_pair(PAIR_HEADER, COLOR_BLACK, COLOR_WHITE);
-    init_pair(PAIR_DOM, COLOR_BLUE, COLOR_BLACK);        // Azul para voos domésticos
-    init_pair(PAIR_INTL, COLOR_MAGENTA, COLOR_BLACK);    // Magenta para voos internacionais
-    init_pair(PAIR_SUCCESS, COLOR_GREEN, COLOR_BLACK);   // Verde para sucessos
-    init_pair(PAIR_ALERT, COLOR_RED, COLOR_BLACK);       // Vermelho para falhas
-    init_pair(6, COLOR_YELLOW, COLOR_BLACK);             // Amarelo para aguardando
+    init_pair(PAIR_DEFAULT, COLOR_WHITE, COLOR_BLACK);        // Branco padrão
+    init_pair(PAIR_HEADER, COLOR_BLACK, COLOR_WHITE);         // Header invertido
+    init_pair(PAIR_DOM, COLOR_BLUE, COLOR_BLACK);             // Azul para voos domésticos
+    init_pair(PAIR_INTL, COLOR_MAGENTA, COLOR_BLACK);         // Magenta para voos internacionais
+    init_pair(PAIR_SUCCESS, COLOR_GREEN, COLOR_BLACK);        // Verde para sucessos
+    init_pair(PAIR_ALERT, COLOR_RED, COLOR_BLACK);            // Vermelho para erros
+    init_pair(PAIR_WARNING, COLOR_YELLOW, COLOR_BLACK);       // Amarelo para avisos
+    init_pair(PAIR_INFO, COLOR_CYAN, COLOR_BLACK);            // Ciano para informações
+    init_pair(PAIR_SYSTEM, COLOR_WHITE, COLOR_BLACK);         // Branco para sistema
+    init_pair(PAIR_RESOURCE, COLOR_MAGENTA, COLOR_BLACK);     // Magenta para recursos
+    init_pair(PAIR_TIMING, COLOR_WHITE, COLOR_BLACK);         // Branco brilhante para timing
+    init_pair(PAIR_DEBUG, COLOR_BLACK, COLOR_WHITE);          // Cinza para debug
 }
 
 void update_terminal_display(SimulacaoAeroporto* sim) {
@@ -395,9 +400,9 @@ void log_evento_ui(SimulacaoAeroporto* sim, Aviao* aviao, int cor, const char* f
 
         } else {
             // Mensagens do sistema
-            wattron(log_win, COLOR_PAIR(PAIR_SUCCESS) | A_BOLD);
-            mvwprintw(log_win, y, x + 1, "[SYSTEM]");
-            wattroff(log_win, COLOR_PAIR(PAIR_SUCCESS) | A_BOLD);
+            wattron(log_win, COLOR_PAIR(LOG_SYSTEM) | A_BOLD);
+            mvwprintw(log_win, y, x, "[SYSTEM]");
+            wattroff(log_win, COLOR_PAIR(LOG_SYSTEM) | A_BOLD);
             x += 8;
             
             //mvwprintw(log_win, y, x, "  %s", buffer);
