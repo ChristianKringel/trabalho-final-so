@@ -23,6 +23,7 @@ int solicitar_pista(SimulacaoAeroporto* sim, int id_aviao, TipoVoo tipo) {
         }
     }
     recursos->pistas_disponiveis--;
+    //log_evento_ui(sim, NULL, "Avião %d do tipo %d solicitou uma pista. Pistas disponíveis: %d", id_aviao, tipo, recursos->pistas_disponiveis);
     //printf("Avião %d do tipo %d solicitou uma pista. Pistas disponíveis: %d\n", id_aviao, tipo, recursos->pistas_disponiveis);
     
     pthread_mutex_unlock(&recursos->mutex_pistas);
@@ -32,9 +33,16 @@ int solicitar_pista(SimulacaoAeroporto* sim, int id_aviao, TipoVoo tipo) {
 void liberar_pista(SimulacaoAeroporto* sim, int id_aviao, int pista_idx) {
     RecursosAeroporto* recursos = &sim->recursos;
     pthread_mutex_lock(&recursos->mutex_pistas);
+
+    if (id_aviao > 0 && id_aviao <= sim->max_avioes) {
+        sim->avioes[id_aviao - 1].pista_alocada = 0;
+    }
     
     recursos->pista_ocupada_por[pista_idx] = -1;
-    recursos->pistas_disponiveis++;
+    //recursos->pistas_disponiveis++;
+    if (recursos->pistas_disponiveis < recursos->total_pistas) {
+        recursos->pistas_disponiveis++;
+    }
     //printf("Avião %d liberou uma pista. Pistas disponíveis: %d\n", id_aviao, recursos->pistas_disponiveis);
     
     pthread_cond_signal(&recursos->cond_pistas);
@@ -73,8 +81,16 @@ void liberar_portao(SimulacaoAeroporto* sim, int id_aviao, int portao_idx) {
     RecursosAeroporto* recursos = &sim->recursos;
     pthread_mutex_lock(&recursos->mutex_portoes);
 
+    if (id_aviao > 0 && id_aviao <= sim->max_avioes) {
+        sim->avioes[id_aviao - 1].portao_alocado = 0;
+    }
+
     recursos->portao_ocupado_por[portao_idx] = -1;
-    recursos->portoes_disponiveis++;
+
+    if (recursos->portoes_disponiveis < recursos->total_portoes) {
+        recursos->portoes_disponiveis++;
+    }
+    //recursos->portoes_disponiveis++;
     //printf("Avião %d liberou um portão. Portões disponíveis: %d\n", id_aviao, recursos->portoes_disponiveis);
     
     pthread_cond_signal(&recursos->cond_portoes);
@@ -113,7 +129,10 @@ void liberar_torre(SimulacaoAeroporto* sim, int id_aviao) {
     if (id_aviao > 0 && id_aviao <= sim->max_avioes) {
         sim->avioes[id_aviao - 1].torre_alocada = 0;
     }
-    
+
+    if (recursos->torres_disponiveis < recursos->total_torres) {
+        recursos->torres_disponiveis++;
+    }
     recursos->torres_disponiveis++;
     //printf("Avião %d liberou uma torre. Torres disponíveis: %d\n", id_aviao, recursos->torres_disponiveis);
     
