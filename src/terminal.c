@@ -2,13 +2,19 @@
 
 static WINDOW *header_win, *airspace_win, *status_panel_win, *fids_win, *log_win;
 
-#define PAIR_DEFAULT 1
-#define PAIR_HEADER  2
-#define PAIR_INTL    3
-#define PAIR_DOM     4
-#define PAIR_ALERT   5
-#define PAIR_SUCCESS 6
-#define PAIR_WARNING 6 
+// #define PAIR_DEFAULT 1
+// #define PAIR_HEADER  2
+// #define PAIR_INTL    3
+// #define PAIR_DOM     4
+// #define PAIR_ALERT   5
+// #define PAIR_SUCCESS 6
+// #define PAIR_WARNING 6 
+
+// #define LOG_SUCCESS  PAIR_SUCCESS   
+// #define LOG_ERROR    PAIR_ALERT     
+// #define LOG_WARNING  PAIR_WARNING   
+// #define LOG_INFO     PAIR_DEFAULT   
+// #define LOG_SYSTEM   PAIR_HEADER 
 
 #define HEADER_HEIGHT 1
 #define AIRSPACE_HEIGHT 3
@@ -328,7 +334,7 @@ static void draw_fids_panel(SimulacaoAeroporto* sim, int voos_ativos) {
     wrefresh(fids_win);
 }
 
-void log_evento_ui(SimulacaoAeroporto* sim, Aviao* aviao, const char* formato, ...) {
+void log_evento_ui(SimulacaoAeroporto* sim, Aviao* aviao, int cor, const char* formato, ...) {
     if (!sim || !log_win || !formato) return;
     char buffer[256];
     va_list args;
@@ -367,28 +373,33 @@ void log_evento_ui(SimulacaoAeroporto* sim, Aviao* aviao, const char* formato, .
             mvwprintw(log_win, y, x, "  ");
             x += 2;
             
-            //DEFINE COR
-            int status_color = PAIR_DEFAULT;
-            if (strstr(buffer, "Obteve") || strstr(buffer, "obteve") || 
-                strstr(buffer, "concluído") || strstr(buffer, "liberou") ||
-                strstr(buffer, "CRIADO") || strstr(buffer, "Pousando") ||
-                strstr(buffer, "Desembarcando") || strstr(buffer, "Decolando") ||
-                strstr(buffer, "completou")) {
-                status_color = PAIR_SUCCESS; 
-            } else if (strstr(buffer, "FALHA") || strstr(buffer, "falha") ||
-                      strstr(buffer, "Erro") || strstr(buffer, "erro") ||
-                      strstr(buffer, "ABORTOU")) {
-                status_color = PAIR_ALERT; 
-            } else if (strstr(buffer, "Solicitando") || strstr(buffer, "Aguard") ||
-                      strstr(buffer, "Espera") || strstr(buffer, "aguardando") ||
-                      strstr(buffer, "Está")) {
-                status_color = PAIR_WARNING; 
-            }
+            // //DEFINE COR
+            // int status_color = PAIR_DEFAULT;
+            // if (strstr(buffer, "Obteve") || strstr(buffer, "obteve") || 
+            //     strstr(buffer, "concluído") || strstr(buffer, "liberou") ||
+            //     strstr(buffer, "CRIADO") || strstr(buffer, "Pousando") ||
+            //     strstr(buffer, "Desembarcando") || strstr(buffer, "Decolando") ||
+            //     strstr(buffer, "completou")) {
+            //     status_color = PAIR_SUCCESS; 
+            // } else if (strstr(buffer, "FALHA") || strstr(buffer, "falha") ||
+            //           strstr(buffer, "Erro") || strstr(buffer, "erro") ||
+            //           strstr(buffer, "ABORTOU")) {
+            //     status_color = PAIR_ALERT; 
+            // } else if (strstr(buffer, "Solicitando") || strstr(buffer, "Aguard") ||
+            //           strstr(buffer, "Espera") || strstr(buffer, "aguardando") ||
+            //           strstr(buffer, "Está")) {
+            //     status_color = PAIR_WARNING; 
+            // }
             
             //ESCREVE A MENSAGEM COM A COR DEFINIDA
-            wattron(log_win, COLOR_PAIR(status_color));
+            // wattron(log_win, COLOR_PAIR(status_color));
+            // mvwprintw(log_win, y, x, "%s", buffer);
+            // wattroff(log_win, COLOR_PAIR(status_color));
+
+            //ESCREVE A MENSAGEM COM A COR DEFINIDA
+            wattron(log_win, COLOR_PAIR(cor));
             mvwprintw(log_win, y, x, "%s", buffer);
-            wattroff(log_win, COLOR_PAIR(status_color));
+            wattroff(log_win, COLOR_PAIR(cor));
 
         } else {
             // Mensagens do sistema
@@ -397,7 +408,10 @@ void log_evento_ui(SimulacaoAeroporto* sim, Aviao* aviao, const char* formato, .
             wattroff(log_win, COLOR_PAIR(PAIR_SUCCESS) | A_BOLD);
             x += 8;
             
+            //mvwprintw(log_win, y, x, "  %s", buffer);
+            wattron(log_win, COLOR_PAIR(cor));
             mvwprintw(log_win, y, x, "  %s", buffer);
+            wattroff(log_win, COLOR_PAIR(cor));
         }
         
         wclrtoeol(log_win);
