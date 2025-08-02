@@ -23,14 +23,6 @@ static WINDOW *header_win, *airspace_win, *status_panel_win, *fids_win, *log_win
 #define FIDS_WIDTH (COLS - STATUS_WIDTH - LOG_WIDTH)
 #define MAIN_HEIGHT (LINES - HEADER_HEIGHT - AIRSPACE_HEIGHT)
 
-static void init_colors();
-static void init_windows();
-static void draw_header(SimulacaoAeroporto* sim, int voos_ativos);
-static void draw_airspace_panel(SimulacaoAeroporto* sim);
-static void draw_status_panel(SimulacaoAeroporto* sim);
-static void draw_fids_panel(SimulacaoAeroporto* sim, int voos_ativos);
-
-
 void init_terminal_ncurses() {
     initscr();
     noecho();
