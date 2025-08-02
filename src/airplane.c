@@ -17,7 +17,6 @@ Aviao* criar_aviao(int id, TipoVoo tipo) {
     aviao->portao_alocado = -1;
     aviao->torre_alocada = -1;
 
-
     return aviao;
 }
 
@@ -341,16 +340,12 @@ void* criador_avioes(void* arg) {
             free(args);
         } else {
             log_evento_ui(sim, novo_aviao, "CRIADO: Avião %d (%s)", novo_aviao->id, tipo == VOO_DOMESTICO ? "DOM" : "INTL");
-            // Incrementa o contador de aviões criados
-            pthread_mutex_lock(&sim->metricas.mutex_metricas);
-            sim->metricas.total_avioes_criados++;
+            incrementar_contador_avioes_criados(&sim->metricas);
             if (tipo == VOO_DOMESTICO) {
-                sim->metricas.voos_domesticos_total++;
+                incrementar_voos_domesticos(&sim->metricas);
             } else {
-                sim->metricas.voos_internacionais_total++;
+                incrementar_voos_internacionais(&sim->metricas);
             }
-            pthread_mutex_unlock(&sim->metricas.mutex_metricas);
-            proximo_id++;
         }
 
         pthread_mutex_unlock(&sim->mutex_simulacao);
