@@ -34,7 +34,7 @@ int main(int argc, char *argv[]) {
 
     SimulacaoAeroporto* sim = inicializar_simulacao(num_pistas, num_portoes, num_torres, tempo_total_sim, max_avioes);
     if (!sim) {
-        fprintf(stderr, "Falha ao inicializar a simulação.\n");
+        fprintf(stderr, "Falha ao inicializar a simulacao.\n");
         return 1;
     }
     pthread_mutex_init(&sim->mutex_ui_log, NULL);
@@ -46,7 +46,8 @@ int main(int argc, char *argv[]) {
     pthread_t ui_thread_id;
     pthread_t criador_avioes_thread_id;
 
-    log_evento_ui(sim, NULL, LOG_SYSTEM, "Simulação iniciada. Pressione 'q' para finalizar.");
+    log_evento_ui(sim, NULL, LOG_SYSTEM, "=== SIMULACAO INICIADA ===");
+    log_evento_ui(sim, NULL, LOG_INFO, "Pressione 'P' para pausar, 'Q' para finalizar");
 
     pthread_create(&ui_thread_id, NULL, ui_thread_func, sim);
     pthread_create(&criador_avioes_thread_id, NULL, criador_avioes, sim);
@@ -54,7 +55,7 @@ int main(int argc, char *argv[]) {
     while(sim->ativa) {
         int ch = getch();
         if (ch == 'q' || ch == 'Q') {
-            log_evento_ui(sim, NULL, LOG_SYSTEM, "Simulação finalizada pelo usuário.");
+            log_evento_ui(sim, NULL, LOG_SYSTEM, "simulacao finalizada pelo usuário.");
             finalizar_simulacao(sim); 
             break;
         }
@@ -64,16 +65,17 @@ int main(int argc, char *argv[]) {
             sim->pausado = !sim->pausado;
 
             if (sim->pausado) {
-                log_evento_ui(sim, NULL, LOG_SYSTEM, "Simulação PAUSADA. Pressione 'p' para retomar.");
+                log_evento_ui(sim, NULL, LOG_SYSTEM, "simulacao PAUSADA. Pressione 'p' para retomar.");
             } else {
-                log_evento_ui(sim, NULL, LOG_SYSTEM, "Simulação RETOMADA.");
+                log_evento_ui(sim, NULL, LOG_SYSTEM, "simulacao RETOMADA.");
                 pthread_cond_broadcast(&sim->cond_pausado);
             }
             pthread_mutex_unlock(&sim->mutex_pausado);
         }
         
         if (difftime(time(NULL), sim->tempo_inicio) >= tempo_total_sim) {
-            log_evento_ui(sim, NULL, LOG_SYSTEM, "Tempo de simulação esgotado. Finalizando...");
+            log_evento_ui(sim, NULL, LOG_SYSTEM, "Tempo limite atingido - Finalizando simulacao");
+            log_evento_ui(sim, NULL, LOG_SYSTEM, "=== SIMULACAO FINALIZADA ===");
             finalizar_simulacao(sim); 
             break;
         }
