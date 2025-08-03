@@ -1,4 +1,146 @@
 #include "utils.h"
+#include "terminal.h"
+
+// =============== FUNÇÕES DE FILA DE PRIORIDADE ===============
+void inicializar_fila_prioridade(FilaPrioridade* fila) {
+    if (fila == NULL) return;
+    
+    fila->tamanho = 0;
+    pthread_mutex_init(&fila->mutex, NULL);
+    pthread_cond_init(&fila->cond, NULL);
+    
+    for (int i = 0; i < MAX_AVIOES; i++) {
+        fila->avioes_ids[i] = -1;
+        fila->prioridades[i] = 0;
+    }
+}
+
+void inserir_na_fila_prioridade(FilaPrioridade* fila, int aviao_id, int prioridade) {
+    if (fila == NULL || fila->tamanho >= MAX_AVIOES) return;
+    
+    pthread_mutex_lock(&fila->mutex);
+    
+    // Insere ordenado por prioridade (maior prioridade primeiro)
+    int pos = fila->tamanho;
+    while (pos > 0 && fila->prioridades[pos - 1] < prioridade) {
+        fila->avioes_ids[pos] = fila->avioes_ids[pos - 1];
+        fila->prioridades[pos] = fila->prioridades[pos - 1];
+        pos--;
+    }
+    
+    fila->avioes_ids[pos] = aviao_id;
+    fila->prioridades[pos] = prioridade;
+    fila->tamanho++;
+    
+    pthread_cond_signal(&fila->cond);
+    pthread_mutex_unlock(&fila->mutex);
+}
+
+int remover_da_fila_prioridade(FilaPrioridade* fila) {
+    if (fila == NULL) return -1;
+    
+    pthread_mutex_lock(&fila->mutex);
+    
+    if (fila->tamanho == 0) {
+        pthread_mutex_unlock(&fila->mutex);
+        return -1;
+    }
+    
+    int aviao_id = fila->avioes_ids[0];
+    
+    // Move todos os elementos uma posição para frente
+    for (int i = 0; i < fila->tamanho - 1; i++) {
+        fila->avioes_ids[i] = fila->avioes_ids[i + 1];
+        fila->prioridades[i] = fila->prioridades[i + 1];
+    }
+    
+    fila->tamanho--;
+    fila->avioes_ids[fila->tamanho] = -1;
+    fila->prioridades[fila->tamanho] = 0;
+    
+    pthread_mutex_unlock(&fila->mutex);
+    return aviao_id;
+}
+
+void destruir_fila_prioridade(FilaPrioridade* fila) {
+    if (fila == NULL) return;
+    
+    pthread_mutex_destroy(&fila->mutex);
+    pthread_cond_destroy(&fila->cond);
+}
+
+// =============== FUNÇÕES DE PRIORIDADE E MONITORAMENTO ===============
+int calcular_prioridade_dinamica(Aviao* aviao, time_t tempo_atual) {
+    if (aviao == NULL) return 0;
+    
+    int prioridade_base = (aviao->tipo == VOO_INTERNACIONAL) ? 100 : 50;
+    int tempo_espera = (int)difftime(tempo_atual, aviao->tempo_inicio_espera_ar);
+    
+    // Prioridade aumenta com o tempo de espera
+    int bonus_tempo = tempo_espera * 2;
+    
+    // Bônus para aviões em alerta ou com crash iminente
+    int bonus_emergencia = 0;
+    if (aviao->crash_iminente) {
+        bonus_emergencia = 1000; // Prioridade máxima
+    } else if (aviao->em_alerta) {
+        bonus_emergencia = 500;
+    }
+    
+    return prioridade_base + bonus_tempo + bonus_emergencia;
+}
+
+void verificar_avioes_em_espera(SimulacaoAeroporto* sim) {
+    if (sim == NULL) return;
+    
+    time_t agora = time(NULL);
+    
+    pthread_mutex_lock(&sim->mutex_simulacao);
+    
+    for (int i = 0; i < sim->metricas.total_avioes_criados && i < sim->max_avioes; i++) {
+        Aviao* aviao = &sim->avioes[i];
+        
+        if (aviao->id <= 0 || aviao->estado == FINALIZADO_SUCESSO || 
+            aviao->estado == FALHA_STARVATION || aviao->estado == FALHA_DEADLOCK) {
+            continue;
+        }
+        
+        if (aviao->estado == AGUARDANDO_POUSO) {
+            int tempo_espera = (int)difftime(agora, aviao->tempo_inicio_espera_ar);
+            
+            if (tempo_espera >= 90 && !aviao->crash_iminente) {
+                // Avião crashed após 90 segundos
+                aviao->crash_iminente = true;
+                log_evento_ui(sim, aviao, LOG_ERROR, "CRASH! Avião %d caiu após 90s de espera no ar", aviao->id);
+                atualizar_estado_aviao(aviao, FALHA_STARVATION);
+                incrementar_aviao_falha_starvation(&sim->metricas);
+                
+            } else if (tempo_espera >= 60 && !aviao->em_alerta) {
+                // Alerta após 60 segundos
+                aviao->em_alerta = true;
+                log_evento_ui(sim, aviao, LOG_WARNING, "ALERTA! Avião %d há %ds no ar - Situação crítica!", aviao->id, tempo_espera);
+            }
+            
+            // Atualiza prioridade dinâmica
+            aviao->prioridade_dinamica = calcular_prioridade_dinamica(aviao, agora);
+        }
+    }
+    
+    pthread_mutex_unlock(&sim->mutex_simulacao);
+}
+
+void* monitorar_avioes(void* arg) {
+    SimulacaoAeroporto* sim = (SimulacaoAeroporto*)arg;
+    
+    while (sim->ativa) {
+        verificar_avioes_em_espera(sim);
+        
+        // Verifica a cada 2 segundos
+        sleep(2);
+    }
+    
+    return NULL;
+}
 
 void atualizar_estado_aviao(Aviao* aviao, EstadoAviao novo_estado) {
     if (aviao == NULL) {
@@ -41,10 +183,15 @@ void destruir_recursos(RecursosAeroporto* recursos) {
 
     pthread_mutex_destroy(&recursos->mutex_pistas);
     pthread_cond_destroy(&recursos->cond_pistas);
+    destruir_fila_prioridade(&recursos->fila_pistas);
+    
     pthread_mutex_destroy(&recursos->mutex_portoes);
     pthread_cond_destroy(&recursos->cond_portoes);
+    destruir_fila_prioridade(&recursos->fila_portoes);
+    
     pthread_mutex_destroy(&recursos->mutex_torres);
     pthread_cond_destroy(&recursos->cond_torres);
+    destruir_fila_prioridade(&recursos->fila_torres);
 }
 
 void liberar_memoria(SimulacaoAeroporto* sim) {

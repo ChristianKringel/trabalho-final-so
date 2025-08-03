@@ -12,6 +12,10 @@ Aviao* criar_aviao(int id, TipoVoo tipo) {
     aviao->estado = AGUARDANDO_POUSO;
     aviao->tempo_criacao = time(NULL);
     aviao->chegada_na_fila = time(NULL); 
+    aviao->tempo_inicio_espera_ar = time(NULL); // Inicia tempo no ar
+    aviao->prioridade_dinamica = 0;
+    aviao->em_alerta = false;
+    aviao->crash_iminente = false;
     aviao->thread_id = 0;
     aviao->pista_alocada = -1;
     aviao->portao_alocado = -1;
@@ -27,14 +31,20 @@ TipoVoo gerar_tipo_voo_aleatorio() {
 int pouso_internacional(Aviao* aviao, SimulacaoAeroporto* sim) {
     log_evento_ui(sim, aviao, LOG_INFO, "Iniciando procedimento de pouso internacional");
     
-    aviao->pista_alocada = solicitar_pista(sim, aviao->id, aviao->tipo);
+    // Verifica se o avião já crashed
+    if (aviao->crash_iminente) {
+        log_evento_ui(sim, aviao, LOG_ERROR, "ABORTOU: Avião já havia crashed");
+        return 0;
+    }
+    
+    aviao->pista_alocada = solicitar_pista_com_prioridade(sim, aviao);
     if (aviao->pista_alocada == -1) { 
         log_evento_ui(sim, aviao, LOG_ERROR, "ERRO: Pista não foi alocada corretamente");
         return 0; 
     }
     log_evento_ui(sim, aviao, LOG_SUCCESS, "Pista %d confirmada para pouso", aviao->pista_alocada);
 
-    if (solicitar_torre(sim, aviao->id, aviao->tipo) == -1) {
+    if (solicitar_torre_com_prioridade(sim, aviao) == -1) {
         liberar_pista(sim, aviao->id, aviao->pista_alocada);
         aviao->pista_alocada = -1;
         log_evento_ui(sim, aviao, LOG_ERROR, "FALHA: Torre de controle indisponível");
@@ -59,13 +69,19 @@ int pouso_internacional(Aviao* aviao, SimulacaoAeroporto* sim) {
 int pouso_domestico(Aviao* aviao, SimulacaoAeroporto* sim) {
     log_evento_ui(sim, aviao, LOG_INFO, "Iniciando procedimento de pouso doméstico");
     
-    if (solicitar_torre(sim, aviao->id, aviao->tipo) == -1) {
+    // Verifica se o avião já crashed
+    if (aviao->crash_iminente) {
+        log_evento_ui(sim, aviao, LOG_ERROR, "ABORTOU: Avião já havia crashed");
+        return 0;
+    }
+    
+    if (solicitar_torre_com_prioridade(sim, aviao) == -1) {
         log_evento_ui(sim, aviao, LOG_ERROR, "FALHA: Torre de controle indisponível");
         return 0;
     }
     log_evento_ui(sim, aviao, LOG_SUCCESS, "Torre de controle alocada.");
 
-    aviao->pista_alocada = solicitar_pista(sim, aviao->id, aviao->tipo);
+    aviao->pista_alocada = solicitar_pista_com_prioridade(sim, aviao);
     if (aviao->pista_alocada == -1) {
         liberar_torre(sim, aviao->id);
         log_evento_ui(sim, aviao, LOG_ERROR, "FALHA: Nenhuma pista disponível");
@@ -90,14 +106,14 @@ int pouso_domestico(Aviao* aviao, SimulacaoAeroporto* sim) {
 int desembarque_internacional(Aviao* aviao, SimulacaoAeroporto* sim) {
     log_evento_ui(sim, aviao, LOG_INFO, "Desembarque: Solicitando Portão.");
     
-    aviao->portao_alocado = solicitar_portao(sim, aviao->id, aviao->tipo);
+    aviao->portao_alocado = solicitar_portao_com_prioridade(sim, aviao);
     if (aviao->portao_alocado == -1) { 
         log_evento_ui(sim, aviao, LOG_ERROR, "FALHA ao obter portão.");
         return 0; 
     }
     log_evento_ui(sim, aviao, LOG_SUCCESS, "Obteve Portão %d. Solicitando Torre.", aviao->portao_alocado);
 
-    if (solicitar_torre(sim, aviao->id, aviao->tipo) == -1) {
+    if (solicitar_torre_com_prioridade(sim, aviao) == -1) {
         liberar_portao(sim, aviao->id, aviao->portao_alocado);
         aviao->portao_alocado = -1;
         log_evento_ui(sim, aviao, LOG_ERROR, "FALHA ao obter torre.");
@@ -123,13 +139,13 @@ int desembarque_internacional(Aviao* aviao, SimulacaoAeroporto* sim) {
 int desembarque_domestico(Aviao* aviao, SimulacaoAeroporto* sim) {
     log_evento_ui(sim, aviao, LOG_INFO, "Desembarque: Solicitando Torre.");
     
-    if (solicitar_torre(sim, aviao->id, aviao->tipo) == -1) { 
+    if (solicitar_torre_com_prioridade(sim, aviao) == -1) { 
         log_evento_ui(sim, aviao, LOG_ERROR, "FALHA ao obter torre.");
         return 0; 
     }
     log_evento_ui(sim, aviao, LOG_SUCCESS, "Obteve Torre. Solicitando Portão.");
 
-    aviao->portao_alocado = solicitar_portao(sim, aviao->id, aviao->tipo);
+    aviao->portao_alocado = solicitar_portao_com_prioridade(sim, aviao);
     if (aviao->portao_alocado == -1) {
         liberar_torre(sim, aviao->id);
         log_evento_ui(sim, aviao, LOG_ERROR, "FALHA ao obter portão.");
@@ -155,14 +171,14 @@ int desembarque_domestico(Aviao* aviao, SimulacaoAeroporto* sim) {
 int decolagem_internacional(Aviao* aviao, SimulacaoAeroporto* sim) {
     log_evento_ui(sim, aviao, LOG_INFO, "Preparando decolagem internacional");
     
-    aviao->portao_alocado = solicitar_portao(sim, aviao->id, aviao->tipo);
+    aviao->portao_alocado = solicitar_portao_com_prioridade(sim, aviao);
     if (aviao->portao_alocado == -1) { 
         log_evento_ui(sim, aviao, LOG_ERROR, "FALHA: Portão indisponível para embarque");
         return 0; 
     }
     log_evento_ui(sim, aviao, LOG_RESOURCE, "Portão %d alocado para embarque", aviao->portao_alocado);
     log_evento_ui(sim, aviao, LOG_TIMING, "Processando embarque...");
-    aviao->pista_alocada = solicitar_pista(sim, aviao->id, aviao->tipo);
+    aviao->pista_alocada = solicitar_pista_com_prioridade(sim, aviao);
     if (aviao->pista_alocada == -1) {
         liberar_portao(sim, aviao->id, aviao->portao_alocado);
         aviao->portao_alocado = -1;
@@ -171,7 +187,7 @@ int decolagem_internacional(Aviao* aviao, SimulacaoAeroporto* sim) {
     }
     log_evento_ui(sim, aviao, LOG_SUCCESS, "Pista %d alocada para decolagem", aviao->pista_alocada);
     
-    if (solicitar_torre(sim, aviao->id, aviao->tipo) == -1) {
+    if (solicitar_torre_com_prioridade(sim, aviao) == -1) {
         liberar_portao(sim, aviao->id, aviao->portao_alocado);
         liberar_pista(sim, aviao->id, aviao->pista_alocada);
         aviao->portao_alocado = -1;
@@ -199,19 +215,19 @@ int decolagem_internacional(Aviao* aviao, SimulacaoAeroporto* sim) {
 int decolagem_domestico(Aviao* aviao, SimulacaoAeroporto* sim) {
     log_evento_ui(sim, aviao, LOG_INFO, "Preparando decolagem doméstica");
     
-    if (solicitar_torre(sim, aviao->id, aviao->tipo) == -1) { 
+    if (solicitar_torre_com_prioridade(sim, aviao) == -1) { 
         log_evento_ui(sim, aviao, LOG_ERROR, "FALHA: Torre indisponível");
         return 0; 
     }
     log_evento_ui(sim, aviao, LOG_RESOURCE, "Torre alocada");
 
-    aviao->portao_alocado = solicitar_portao(sim, aviao->id, aviao->tipo);
+    aviao->portao_alocado = solicitar_portao_com_prioridade(sim, aviao);
     if (aviao->portao_alocado == -1) {
         liberar_torre(sim, aviao->id);
-        log_evento_ui(sim, aviao, LOG_ERROR, "FALHA: Pista indisponível");
+        log_evento_ui(sim, aviao, LOG_ERROR, "FALHA: Portão indisponível");
         return 0;
     }
-    aviao->pista_alocada = solicitar_pista(sim, aviao->id, aviao->tipo);
+    aviao->pista_alocada = solicitar_pista_com_prioridade(sim, aviao);
     if (aviao->pista_alocada == -1) {
         liberar_torre(sim, aviao->id);
         liberar_portao(sim, aviao->id, aviao->portao_alocado);
@@ -242,15 +258,17 @@ void* thread_aviao(void* arg) {
     SimulacaoAeroporto* sim = args->sim;
     int sucesso = 0;
 
-
     verificar_pausa(sim);
     if (!sim->ativa) { free(args); return NULL; } 
 
     log_evento_ui(sim, aviao, LOG_SYSTEM, "Avião chegou ao espaço aéreo");
     atualizar_estado_aviao(aviao, AGUARDANDO_POUSO);
     
+    // Inicializa o tempo de início no ar
+    aviao->tempo_inicio_espera_ar = time(NULL);
     aviao->tempo_inicio_espera = time(NULL);
     log_evento_ui(sim, aviao, LOG_INFO, "Está aguardando pouso.");
+    
     if (aviao->tipo == VOO_INTERNACIONAL) {
         sucesso = pouso_internacional(aviao, sim);
     } else {
