@@ -352,6 +352,25 @@ void log_evento_ui(SimulacaoAeroporto* sim, Aviao* aviao, int cor, const char* f
         int segundos = tempo_decorrido % 60;
         mvwprintw(log_win, y, x, "[%02d:%02d] ", minutos, segundos);
         x += 9;
+
+        FILE* arquivo_log = fopen("simulacao_log.txt", "a");
+        if (arquivo_log) {
+
+            time_t agora = time(NULL);
+            struct tm* tm_info = localtime(&agora);
+            char timestamp[64];
+            strftime(timestamp, sizeof(timestamp), "%d/%m/%Y %H:%M:%S", tm_info);
+            
+            if (aviao != NULL) {
+                char tipo_char = (aviao->tipo == VOO_DOMESTICO) ? 'D' : 'I';
+                fprintf(arquivo_log, "[%s] %c%02d  %s\n", 
+                       timestamp, tipo_char, aviao->id, buffer);
+            } else {
+                fprintf(arquivo_log, "[%s] [SYSTEM]  %s\n", 
+                       timestamp, buffer);
+            }
+            fclose(arquivo_log);
+        }
         
         if (aviao != NULL) {
             //IDENTIFICA COR PELO TIPO DO VOO
@@ -369,29 +388,6 @@ void log_evento_ui(SimulacaoAeroporto* sim, Aviao* aviao, int cor, const char* f
             
             mvwprintw(log_win, y, x, "  ");
             x += 2;
-            
-            // //DEFINE COR
-            // int status_color = PAIR_DEFAULT;
-            // if (strstr(buffer, "Obteve") || strstr(buffer, "obteve") || 
-            //     strstr(buffer, "concluído") || strstr(buffer, "liberou") ||
-            //     strstr(buffer, "CRIADO") || strstr(buffer, "Pousando") ||
-            //     strstr(buffer, "Desembarcando") || strstr(buffer, "Decolando") ||
-            //     strstr(buffer, "completou")) {
-            //     status_color = PAIR_SUCCESS; 
-            // } else if (strstr(buffer, "FALHA") || strstr(buffer, "falha") ||
-            //           strstr(buffer, "Erro") || strstr(buffer, "erro") ||
-            //           strstr(buffer, "ABORTOU")) {
-            //     status_color = PAIR_ALERT; 
-            // } else if (strstr(buffer, "Solicitando") || strstr(buffer, "Aguard") ||
-            //           strstr(buffer, "Espera") || strstr(buffer, "aguardando") ||
-            //           strstr(buffer, "Está")) {
-            //     status_color = PAIR_WARNING; 
-            // }
-            
-            //ESCREVE A MENSAGEM COM A COR DEFINIDA
-            // wattron(log_win, COLOR_PAIR(status_color));
-            // mvwprintw(log_win, y, x, "%s", buffer);
-            // wattroff(log_win, COLOR_PAIR(status_color));
 
             //ESCREVE A MENSAGEM COM A COR DEFINIDA
             wattron(log_win, COLOR_PAIR(cor));
