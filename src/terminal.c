@@ -23,14 +23,6 @@ static WINDOW *header_win, *airspace_win, *status_panel_win, *fids_win, *log_win
 #define FIDS_WIDTH (COLS - STATUS_WIDTH - LOG_WIDTH)
 #define MAIN_HEIGHT (LINES - HEADER_HEIGHT - AIRSPACE_HEIGHT)
 
-static void init_colors();
-static void init_windows();
-static void draw_header(SimulacaoAeroporto* sim, int voos_ativos);
-static void draw_airspace_panel(SimulacaoAeroporto* sim);
-static void draw_status_panel(SimulacaoAeroporto* sim);
-static void draw_fids_panel(SimulacaoAeroporto* sim, int voos_ativos);
-
-
 void init_terminal_ncurses() {
     initscr();
     noecho();
@@ -75,11 +67,11 @@ void close_terminal_ncurses() {
 }
 
 static void init_windows(){
-    header_win = newwin(HEADER_HEIGHT, COLS, 0, 0);
-    airspace_win = newwin(AIRSPACE_HEIGHT, COLS, HEADER_HEIGHT, 0);
+    header_win       = newwin(HEADER_HEIGHT, COLS, 0, 0);
+    airspace_win     = newwin(AIRSPACE_HEIGHT, COLS, HEADER_HEIGHT, 0);
     status_panel_win = newwin(MAIN_HEIGHT, STATUS_WIDTH, HEADER_HEIGHT + AIRSPACE_HEIGHT, 0);
-    fids_win = newwin(MAIN_HEIGHT, FIDS_WIDTH, HEADER_HEIGHT + AIRSPACE_HEIGHT, STATUS_WIDTH);
-    log_win = newwin(MAIN_HEIGHT, LOG_WIDTH, HEADER_HEIGHT + AIRSPACE_HEIGHT, STATUS_WIDTH + FIDS_WIDTH);
+    fids_win         = newwin(MAIN_HEIGHT, FIDS_WIDTH, HEADER_HEIGHT + AIRSPACE_HEIGHT, STATUS_WIDTH);
+    log_win          = newwin(MAIN_HEIGHT, LOG_WIDTH, HEADER_HEIGHT + AIRSPACE_HEIGHT, STATUS_WIDTH + FIDS_WIDTH);
     scrollok(log_win, TRUE);
     wbkgd(log_win, COLOR_PAIR(PAIR_DEFAULT));
     box(log_win, 0, 0);
@@ -90,13 +82,18 @@ static void init_windows(){
 static void init_colors() {
     start_color();
     
-    init_pair(PAIR_DEFAULT, COLOR_WHITE, COLOR_BLACK);
-    init_pair(PAIR_HEADER, COLOR_BLACK, COLOR_WHITE);
-    init_pair(PAIR_DOM, COLOR_BLUE, COLOR_BLACK);        // Azul para voos domésticos
-    init_pair(PAIR_INTL, COLOR_MAGENTA, COLOR_BLACK);    // Magenta para voos internacionais
-    init_pair(PAIR_SUCCESS, COLOR_GREEN, COLOR_BLACK);   // Verde para sucessos
-    init_pair(PAIR_ALERT, COLOR_RED, COLOR_BLACK);       // Vermelho para falhas
-    init_pair(6, COLOR_YELLOW, COLOR_BLACK);             // Amarelo para aguardando
+    init_pair(PAIR_DEFAULT, COLOR_WHITE, COLOR_BLACK);        // Branco padrão
+    init_pair(PAIR_HEADER, COLOR_BLACK, COLOR_WHITE);         // Header invertido
+    init_pair(PAIR_DOM, COLOR_BLUE, COLOR_BLACK);             // Azul para voos domésticos
+    init_pair(PAIR_INTL, COLOR_MAGENTA, COLOR_BLACK);         // Magenta para voos internacionais
+    init_pair(PAIR_SUCCESS, COLOR_GREEN, COLOR_BLACK);        // Verde para sucessos
+    init_pair(PAIR_ALERT, COLOR_RED, COLOR_BLACK);            // Vermelho para erros
+    init_pair(PAIR_WARNING, COLOR_YELLOW, COLOR_BLACK);       // Amarelo para avisos
+    init_pair(PAIR_INFO, COLOR_CYAN, COLOR_BLACK);            // Ciano para informações
+    init_pair(PAIR_SYSTEM, COLOR_WHITE, COLOR_BLACK);         // Branco para sistema
+    init_pair(PAIR_RESOURCE, COLOR_MAGENTA, COLOR_BLACK);     // Magenta para recursos
+    init_pair(PAIR_TIMING, COLOR_WHITE, COLOR_BLACK);         // Branco brilhante para timing
+    init_pair(PAIR_DEBUG, COLOR_BLACK, COLOR_WHITE);          // Cinza para debug
 }
 
 void update_terminal_display(SimulacaoAeroporto* sim) {
@@ -228,26 +225,27 @@ static void draw_status_panel(SimulacaoAeroporto* sim) {
     int linha_torres = linha_portoes + 1 + sim->recursos.total_portoes + 1;
     mvwprintw(status_panel_win, linha_torres, 2, "[TORRES]");
 
-    int torres_ocupadas = sim->recursos.total_torres - sim->recursos.torres_disponiveis;
-    
+    // Criar lista de aviões que estão usando torres, um por torre
+    int avioes_usando_torres[sim->recursos.total_torres];
     for (int i = 0; i < sim->recursos.total_torres; i++) {
-        // Verificar se algum avião está usando uma torre
-        bool torre_ocupada = false;
-        int aviao_usando_torre = -1;
-        
-        // Procurar por aviões que estão em estados que usam torre
-        for (int j = 0; j < sim->metricas.total_avioes_criados; j++) {
-            if (sim->avioes[j].id > 0 && sim->avioes[j].torre_alocada && 
-                (sim->avioes[j].estado == POUSANDO || sim->avioes[j].estado == DESEMBARCANDO || sim->avioes[j].estado == DECOLANDO)) {
-                if (!torre_ocupada) { 
-                    torre_ocupada = true;
-                    aviao_usando_torre = sim->avioes[j].id;
-                    break;
-                }
-            }
+        avioes_usando_torres[i] = -1; // Inicializa como livre
+    }
+    
+    // Mapear aviões para torres específicas (evita duplicação)
+    int torre_index = 0;
+    for (int j = 0; j < sim->metricas.total_avioes_criados && torre_index < sim->recursos.total_torres; j++) {
+        if (sim->avioes[j].id > 0 && sim->avioes[j].torre_alocada && 
+            (sim->avioes[j].estado == POUSANDO || sim->avioes[j].estado == DESEMBARCANDO || sim->avioes[j].estado == DECOLANDO)) {
+            avioes_usando_torres[torre_index] = sim->avioes[j].id;
+            torre_index++;
         }
+    }
+    
+    // Exibir cada torre com seu avião específico
+    for (int i = 0; i < sim->recursos.total_torres; i++) {
+        int aviao_usando_torre = avioes_usando_torres[i];
         
-        if (torre_ocupada && aviao_usando_torre != -1) {
+        if (aviao_usando_torre != -1) {
             char id_str[5];
             char tipo_char = sim->avioes[aviao_usando_torre-1].tipo == VOO_DOMESTICO ? 'D' : 'I';
             snprintf(id_str, sizeof(id_str), "%c%02d", tipo_char, aviao_usando_torre);
@@ -355,6 +353,25 @@ void log_evento_ui(SimulacaoAeroporto* sim, Aviao* aviao, int cor, const char* f
         int segundos = tempo_decorrido % 60;
         mvwprintw(log_win, y, x, "[%02d:%02d] ", minutos, segundos);
         x += 9;
+
+        FILE* arquivo_log = fopen("simulacao_log.txt", "a");
+        if (arquivo_log) {
+
+            time_t agora = time(NULL);
+            struct tm* tm_info = localtime(&agora);
+            char timestamp[64];
+            strftime(timestamp, sizeof(timestamp), "%d/%m/%Y %H:%M:%S", tm_info);
+            
+            if (aviao != NULL) {
+                char tipo_char = (aviao->tipo == VOO_DOMESTICO) ? 'D' : 'I';
+                fprintf(arquivo_log, "[%s] %c%02d  %s\n", 
+                       timestamp, tipo_char, aviao->id, buffer);
+            } else {
+                fprintf(arquivo_log, "[%s] [SYSTEM]  %s\n", 
+                       timestamp, buffer);
+            }
+            fclose(arquivo_log);
+        }
         
         if (aviao != NULL) {
             //IDENTIFICA COR PELO TIPO DO VOO
@@ -372,29 +389,6 @@ void log_evento_ui(SimulacaoAeroporto* sim, Aviao* aviao, int cor, const char* f
             
             mvwprintw(log_win, y, x, "  ");
             x += 2;
-            
-            // //DEFINE COR
-            // int status_color = PAIR_DEFAULT;
-            // if (strstr(buffer, "Obteve") || strstr(buffer, "obteve") || 
-            //     strstr(buffer, "concluído") || strstr(buffer, "liberou") ||
-            //     strstr(buffer, "CRIADO") || strstr(buffer, "Pousando") ||
-            //     strstr(buffer, "Desembarcando") || strstr(buffer, "Decolando") ||
-            //     strstr(buffer, "completou")) {
-            //     status_color = PAIR_SUCCESS; 
-            // } else if (strstr(buffer, "FALHA") || strstr(buffer, "falha") ||
-            //           strstr(buffer, "Erro") || strstr(buffer, "erro") ||
-            //           strstr(buffer, "ABORTOU")) {
-            //     status_color = PAIR_ALERT; 
-            // } else if (strstr(buffer, "Solicitando") || strstr(buffer, "Aguard") ||
-            //           strstr(buffer, "Espera") || strstr(buffer, "aguardando") ||
-            //           strstr(buffer, "Está")) {
-            //     status_color = PAIR_WARNING; 
-            // }
-            
-            //ESCREVE A MENSAGEM COM A COR DEFINIDA
-            // wattron(log_win, COLOR_PAIR(status_color));
-            // mvwprintw(log_win, y, x, "%s", buffer);
-            // wattroff(log_win, COLOR_PAIR(status_color));
 
             //ESCREVE A MENSAGEM COM A COR DEFINIDA
             wattron(log_win, COLOR_PAIR(cor));
@@ -403,9 +397,9 @@ void log_evento_ui(SimulacaoAeroporto* sim, Aviao* aviao, int cor, const char* f
 
         } else {
             // Mensagens do sistema
-            wattron(log_win, COLOR_PAIR(PAIR_SUCCESS) | A_BOLD);
-            mvwprintw(log_win, y, x + 1, "[SYSTEM]");
-            wattroff(log_win, COLOR_PAIR(PAIR_SUCCESS) | A_BOLD);
+            wattron(log_win, COLOR_PAIR(LOG_SYSTEM) | A_BOLD);
+            mvwprintw(log_win, y, x, "[SYSTEM]");
+            wattroff(log_win, COLOR_PAIR(LOG_SYSTEM) | A_BOLD);
             x += 8;
             
             //mvwprintw(log_win, y, x, "  %s", buffer);

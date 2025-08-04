@@ -1,4 +1,5 @@
 #include "initialize.h"
+#include "utils.h"
 
 void inicializar_metricas(MetricasSimulacao* metricas)
 {
@@ -32,6 +33,7 @@ void inicializar_recursos(RecursosAeroporto* recursos, int pistas, int portoes, 
     }
     pthread_mutex_init(&recursos->mutex_pistas, NULL);
     pthread_cond_init(&recursos->cond_pistas, NULL);
+    inicializar_fila_prioridade(&recursos->fila_pistas);
 
     recursos->total_portoes = portoes;
     recursos->portoes_disponiveis = portoes;
@@ -40,11 +42,13 @@ void inicializar_recursos(RecursosAeroporto* recursos, int pistas, int portoes, 
     }
     pthread_mutex_init(&recursos->mutex_portoes, NULL);
     pthread_cond_init(&recursos->cond_portoes, NULL);
+    inicializar_fila_prioridade(&recursos->fila_portoes);
 
     recursos->total_torres = torres;
     recursos->torres_disponiveis = torres;
     pthread_mutex_init(&recursos->mutex_torres, NULL);
     pthread_cond_init(&recursos->cond_torres, NULL);
+    inicializar_fila_prioridade(&recursos->fila_torres);
 }
 
 SimulacaoAeroporto* inicializar_simulacao(int pistas, int portoes, int torres, int tempo_simulacao, int max_avioes)
