@@ -225,26 +225,27 @@ static void draw_status_panel(SimulacaoAeroporto* sim) {
     int linha_torres = linha_portoes + 1 + sim->recursos.total_portoes + 1;
     mvwprintw(status_panel_win, linha_torres, 2, "[TORRES]");
 
-    int torres_ocupadas = sim->recursos.total_torres - sim->recursos.torres_disponiveis;
-    
+    // Criar lista de aviões que estão usando torres, um por torre
+    int avioes_usando_torres[sim->recursos.total_torres];
     for (int i = 0; i < sim->recursos.total_torres; i++) {
-        // Verificar se algum avião está usando uma torre
-        bool torre_ocupada = false;
-        int aviao_usando_torre = -1;
-        
-        // Procurar por aviões que estão em estados que usam torre
-        for (int j = 0; j < sim->metricas.total_avioes_criados; j++) {
-            if (sim->avioes[j].id > 0 && sim->avioes[j].torre_alocada && 
-                (sim->avioes[j].estado == POUSANDO || sim->avioes[j].estado == DESEMBARCANDO || sim->avioes[j].estado == DECOLANDO)) {
-                if (!torre_ocupada) { 
-                    torre_ocupada = true;
-                    aviao_usando_torre = sim->avioes[j].id;
-                    break;
-                }
-            }
+        avioes_usando_torres[i] = -1; // Inicializa como livre
+    }
+    
+    // Mapear aviões para torres específicas (evita duplicação)
+    int torre_index = 0;
+    for (int j = 0; j < sim->metricas.total_avioes_criados && torre_index < sim->recursos.total_torres; j++) {
+        if (sim->avioes[j].id > 0 && sim->avioes[j].torre_alocada && 
+            (sim->avioes[j].estado == POUSANDO || sim->avioes[j].estado == DESEMBARCANDO || sim->avioes[j].estado == DECOLANDO)) {
+            avioes_usando_torres[torre_index] = sim->avioes[j].id;
+            torre_index++;
         }
+    }
+    
+    // Exibir cada torre com seu avião específico
+    for (int i = 0; i < sim->recursos.total_torres; i++) {
+        int aviao_usando_torre = avioes_usando_torres[i];
         
-        if (torre_ocupada && aviao_usando_torre != -1) {
+        if (aviao_usando_torre != -1) {
             char id_str[5];
             char tipo_char = sim->avioes[aviao_usando_torre-1].tipo == VOO_DOMESTICO ? 'D' : 'I';
             snprintf(id_str, sizeof(id_str), "%c%02d", tipo_char, aviao_usando_torre);

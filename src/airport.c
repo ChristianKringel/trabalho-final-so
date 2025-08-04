@@ -308,71 +308,51 @@ int solicitar_portao_com_prioridade(SimulacaoAeroporto* sim, Aviao* aviao) {
 int solicitar_torre_com_prioridade(SimulacaoAeroporto* sim, Aviao* aviao) {
     RecursosAeroporto* recursos = &sim->recursos;
     
-    pthread_mutex_lock(&recursos->mutex_torres);
-    
-    // Se há torres disponíveis, tenta pegar diretamente
-    if (recursos->torres_disponiveis > 0) {
-        recursos->torres_disponiveis--;
-        
-        if (aviao->id > 0 && aviao->id <= sim->max_avioes) {
-            sim->avioes[aviao->id - 1].torre_alocada = 1;
-        }
-        
-        time_t agora = time(NULL);
-        int prioridade = calcular_prioridade_dinamica(aviao, agora);
-        log_evento_ui(sim, aviao, LOG_RESOURCE, 
-                      "Torre alocada (%d/%d disponíveis) [Prioridade: %d]", 
-                      recursos->torres_disponiveis, recursos->total_torres, prioridade);
-        
-        pthread_mutex_unlock(&recursos->mutex_torres);
-        return 0;
-    }
-    
-    // Se não há torres disponíveis, entra na fila
     time_t agora = time(NULL);
     int prioridade = calcular_prioridade_dinamica(aviao, agora);
-    log_evento_ui(sim, aviao, LOG_WARNING, "Aguardando torre de controle - Fila de espera (prioridade: %d)", prioridade);
-    inserir_na_fila_prioridade(&recursos->fila_torres, aviao->id, prioridade);
     
-    // Espera até que seja a sua vez
-    while (sim->ativa) {
-        pthread_cond_wait(&recursos->cond_torres, &recursos->mutex_torres);
+    pthread_mutex_lock(&recursos->mutex_torres);
+    
+    if (recursos->torres_disponiveis <= 0) {
+        log_evento_ui(sim, aviao, LOG_WARNING, "Aguardando torre de controle - Fila de espera (prioridade: %d)", prioridade);
+        inserir_na_fila_prioridade(&recursos->fila_torres, aviao->id, prioridade);
         
-        if (!sim->ativa) {
-            break;
-        }
-        
-        // Verifica se há recursos disponíveis E se este avião tem a maior prioridade
-        if (recursos->torres_disponiveis > 0 && recursos->fila_torres.tamanho > 0) {
-            // Atualiza a prioridade antes de verificar
-            int nova_prioridade = calcular_prioridade_dinamica(aviao, time(NULL));
+        while (recursos->torres_disponiveis <= 0 && sim->ativa) {
+            pthread_cond_wait(&recursos->cond_torres, &recursos->mutex_torres);
             
-            // Remove da fila e verifica se é o próximo
-            int proximo_id = remover_da_fila_prioridade(&recursos->fila_torres);
-            
-            if (proximo_id == aviao->id) {
-                // É a vez deste avião!
-                recursos->torres_disponiveis--;
-                
-                if (aviao->id > 0 && aviao->id <= sim->max_avioes) {
-                    sim->avioes[aviao->id - 1].torre_alocada = 1;
+            // Quando uma torre é liberada, verifica se este avião tem a maior prioridade
+            if (recursos->torres_disponiveis > 0) {
+                int proximo_id = remover_da_fila_prioridade(&recursos->fila_torres);
+                if (proximo_id == aviao->id) {
+                    break; // É a vez deste avião
+                } else if (proximo_id != -1) {
+                    // Reinsere o avião que foi removido mas não é este
+                    inserir_na_fila_prioridade(&recursos->fila_torres, proximo_id, 
+                        calcular_prioridade_dinamica(&sim->avioes[proximo_id-1], time(NULL)));
+                    
+                    // Reinsere este avião com prioridade atualizada
+                    inserir_na_fila_prioridade(&recursos->fila_torres, aviao->id, 
+                        calcular_prioridade_dinamica(aviao, time(NULL)));
                 }
-                
-                log_evento_ui(sim, aviao, LOG_RESOURCE, 
-                              "Torre alocada (%d/%d disponíveis) [Prioridade: %d]", 
-                              recursos->torres_disponiveis, recursos->total_torres, nova_prioridade);
-                
-                pthread_mutex_unlock(&recursos->mutex_torres);
-                return 0;
-            } else if (proximo_id != -1) {
-                // Não é a vez deste avião, reinsere ambos com prioridades atualizadas
-                inserir_na_fila_prioridade(&recursos->fila_torres, proximo_id, 
-                    calcular_prioridade_dinamica(&sim->avioes[proximo_id-1], time(NULL)));
-                inserir_na_fila_prioridade(&recursos->fila_torres, aviao->id, nova_prioridade);
             }
         }
     }
     
+    if (!sim->ativa) {
+        pthread_mutex_unlock(&recursos->mutex_torres);
+        return -1;
+    }
+    
+    recursos->torres_disponiveis--;
+    
+    if (aviao->id > 0 && aviao->id <= sim->max_avioes) {
+        sim->avioes[aviao->id - 1].torre_alocada = 1;
+    }
+    
+    log_evento_ui(sim, aviao, LOG_RESOURCE, 
+                  "Torre alocada (%d/%d disponíveis) [Prioridade: %d]", 
+                  recursos->torres_disponiveis, recursos->total_torres, prioridade);
+    
     pthread_mutex_unlock(&recursos->mutex_torres);
-    return -1;
+    return 0;
 }

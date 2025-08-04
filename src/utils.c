@@ -46,6 +46,7 @@ int remover_da_fila_prioridade(FilaPrioridade* fila) {
         return -1;
     }
     
+    // Sempre pega o primeiro (maior prioridade)
     int aviao_id = fila->avioes_ids[0];
     
     // Move todos os elementos uma posição para frente
@@ -70,24 +71,71 @@ void destruir_fila_prioridade(FilaPrioridade* fila) {
 }
 
 // =============== FUNÇÕES DE PRIORIDADE E MONITORAMENTO ===============
-int calcular_prioridade_dinamica(Aviao* aviao, time_t tempo_atual) {
-    if (aviao == NULL) return 0;
-    
-    int prioridade_base = (aviao->tipo == VOO_INTERNACIONAL) ? 100 : 50;
-    int tempo_espera = (int)difftime(tempo_atual, aviao->tempo_inicio_espera_ar);
-    
-    // Prioridade aumenta com o tempo de espera
-    int bonus_tempo = tempo_espera * 2;
-    
-    // Bônus para aviões em alerta ou com crash iminente
-    int bonus_emergencia = 0;
-    if (aviao->crash_iminente) {
-        bonus_emergencia = 1000; // Prioridade máxima
-    } else if (aviao->em_alerta) {
-        bonus_emergencia = 500;
+int obter_proximo_da_fila_prioridade(FilaPrioridade* fila) {
+    if (fila->tamanho == 0) {
+        return -1;
     }
     
-    return prioridade_base + bonus_tempo + bonus_emergencia;
+    int maior_prioridade = 0;
+    int posicao_escolhida = 0;
+    
+    for (int i = 0; i < fila->tamanho; i++) {
+        if (fila->prioridades[i] > maior_prioridade) {
+            maior_prioridade = fila->prioridades[i];
+            posicao_escolhida = i;
+        }
+    }
+    
+    return fila->avioes_ids[posicao_escolhida];
+}
+
+void atualizar_prioridade_na_fila(FilaPrioridade* fila, int aviao_id, int nova_prioridade) {
+    for (int i = 0; i < fila->tamanho; i++) {
+        if (fila->avioes_ids[i] == aviao_id) {
+            fila->prioridades[i] = nova_prioridade;
+            return;
+        }
+    }
+}
+
+int calcular_prioridade_dinamica(Aviao* aviao, time_t agora) {
+    if (aviao == NULL) return 0;
+    
+    // Prioridades base mais equilibradas
+    int prioridade_base = (aviao->tipo == VOO_INTERNACIONAL) ? 20 : 10;
+    int tempo_espera = (int)difftime(agora, aviao->tempo_inicio_espera_ar);
+    
+    // Prioridade aumenta EXPONENCIALMENTE com o tempo de espera
+    // Isso garante que aviões esperando há muito tempo sempre tenham prioridade
+    int bonus_tempo = 0;
+    if (tempo_espera >= 0) {
+        // Fórmula exponencial: tempo² / 10 + tempo * 5
+        // Isso cria uma curva onde aviões com mais tempo ganham prioridade rapidamente
+        bonus_tempo = (tempo_espera * tempo_espera) / 10 + tempo_espera * 5;
+    }
+    
+    // Bônus para aviões em situação crítica
+    int bonus_emergencia = 0;
+    if (aviao->crash_iminente) {
+        // PRIORIDADE EXTREMA - sempre será o primeiro da fila
+        bonus_emergencia = 10000;
+    } else if (aviao->em_alerta) {
+        // Prioridade muito alta - quase sempre será priorizado
+        bonus_emergencia = 2000;
+    }
+    
+    // Bônus adicional baseado no tempo total esperando (não só no ar)
+    int tempo_total_espera = (int)difftime(agora, aviao->tempo_criacao);
+    int bonus_persistencia = tempo_total_espera * 3; // 3 pontos por segundo de vida
+    
+    int prioridade_final = prioridade_base + bonus_tempo + bonus_emergencia + bonus_persistencia;
+    
+    // Debug: log prioridades muito altas para monitoramento
+    if (bonus_emergencia > 0) {
+        // Não faz log aqui para evitar spam, mas a prioridade será visível nos logs de alocação
+    }
+    
+    return prioridade_final;
 }
 
 void verificar_avioes_em_espera(SimulacaoAeroporto* sim) {
@@ -116,13 +164,24 @@ void verificar_avioes_em_espera(SimulacaoAeroporto* sim) {
                 incrementar_aviao_falha_starvation(&sim->metricas);
                 
             } else if (tempo_espera >= 60 && !aviao->em_alerta) {
-                // Alerta após 60 segundos
+                // Alerta após 60 segundos - PRIORIDADE EXTREMA
                 aviao->em_alerta = true;
-                log_evento_ui(sim, aviao, LOG_WARNING, "ALERTA! Avião %d há %ds no ar - Situação crítica!", aviao->id, tempo_espera);
+                log_evento_ui(sim, aviao, LOG_WARNING, "ALERTA CRÍTICO! Avião %d há %ds no ar - PRIORIDADE EXTREMA!", aviao->id, tempo_espera);
+                
+                // Força um broadcast para que este avião seja processado imediatamente
+                pthread_cond_broadcast(&sim->recursos.cond_torres);
+                pthread_cond_broadcast(&sim->recursos.cond_pistas);
+                pthread_cond_broadcast(&sim->recursos.cond_portoes);
             }
             
             // Atualiza prioridade dinâmica
+            int prioridade_antiga = aviao->prioridade_dinamica;
             aviao->prioridade_dinamica = calcular_prioridade_dinamica(aviao, agora);
+            
+            // Log quando a prioridade de um avião em emergência aumenta significativamente
+            if (aviao->em_alerta && aviao->prioridade_dinamica > prioridade_antiga + 100) {
+                log_evento_ui(sim, aviao, LOG_INFO, "⚡ Prioridade crítica atualizada: %d (avião em alerta)", aviao->prioridade_dinamica);
+            }
         }
     }
     
@@ -135,13 +194,20 @@ void verificar_recursos_orfaos(SimulacaoAeroporto* sim) {
     
     RecursosAeroporto* recursos = &sim->recursos;
     
-    // Verifica torres órfãs
+    // Verifica torres órfãs com mais agressividade
     if (recursos->torres_disponiveis > 0 && recursos->fila_torres.tamanho > 0) {
         pthread_mutex_lock(&recursos->mutex_torres);
         if (recursos->torres_disponiveis > 0 && recursos->fila_torres.tamanho > 0) {
-            log_evento_ui(sim, NULL, LOG_WARNING, "Detectado torre órfã - forçando broadcast (%d torres, %d na fila)", 
+            log_evento_ui(sim, NULL, LOG_WARNING, "Detectado torre órfã - forçando broadcast múltiplo (%d torres, %d na fila)", 
                          recursos->torres_disponiveis, recursos->fila_torres.tamanho);
-            pthread_cond_broadcast(&recursos->cond_torres);
+            
+            // Força múltiplos broadcasts para garantir que as threads acordem
+            for (int i = 0; i < 3; i++) {
+                pthread_cond_broadcast(&recursos->cond_torres);
+                pthread_mutex_unlock(&recursos->mutex_torres);
+                usleep(500); // 0.5ms entre broadcasts
+                pthread_mutex_lock(&recursos->mutex_torres);
+            }
         }
         pthread_mutex_unlock(&recursos->mutex_torres);
     }
@@ -150,9 +216,12 @@ void verificar_recursos_orfaos(SimulacaoAeroporto* sim) {
     if (recursos->pistas_disponiveis > 0 && recursos->fila_pistas.tamanho > 0) {
         pthread_mutex_lock(&recursos->mutex_pistas);
         if (recursos->pistas_disponiveis > 0 && recursos->fila_pistas.tamanho > 0) {
-            log_evento_ui(sim, NULL, LOG_WARNING, "Detectado pista órfã - forçando broadcast (%d pistas, %d na fila)", 
-                         recursos->pistas_disponiveis, recursos->fila_pistas.tamanho);
-            pthread_cond_broadcast(&recursos->cond_pistas);
+            for (int i = 0; i < 2; i++) {
+                pthread_cond_broadcast(&recursos->cond_pistas);
+                pthread_mutex_unlock(&recursos->mutex_pistas);
+                usleep(500);
+                pthread_mutex_lock(&recursos->mutex_pistas);
+            }
         }
         pthread_mutex_unlock(&recursos->mutex_pistas);
     }
@@ -161,9 +230,12 @@ void verificar_recursos_orfaos(SimulacaoAeroporto* sim) {
     if (recursos->portoes_disponiveis > 0 && recursos->fila_portoes.tamanho > 0) {
         pthread_mutex_lock(&recursos->mutex_portoes);
         if (recursos->portoes_disponiveis > 0 && recursos->fila_portoes.tamanho > 0) {
-            log_evento_ui(sim, NULL, LOG_WARNING, "Detectado portão órfão - forçando broadcast (%d portões, %d na fila)", 
-                         recursos->portoes_disponiveis, recursos->fila_portoes.tamanho);
-            pthread_cond_broadcast(&recursos->cond_portoes);
+            for (int i = 0; i < 2; i++) {
+                pthread_cond_broadcast(&recursos->cond_portoes);
+                pthread_mutex_unlock(&recursos->mutex_portoes);
+                usleep(500);
+                pthread_mutex_lock(&recursos->mutex_portoes);
+            }
         }
         pthread_mutex_unlock(&recursos->mutex_portoes);
     }
@@ -171,13 +243,39 @@ void verificar_recursos_orfaos(SimulacaoAeroporto* sim) {
 
 void* monitorar_avioes(void* arg) {
     SimulacaoAeroporto* sim = (SimulacaoAeroporto*)arg;
+    int ciclo_contador = 0;
     
     while (sim->ativa) {
         verificar_avioes_em_espera(sim);
-        verificar_recursos_orfaos(sim);
         
-        // Verifica a cada 2 segundos
-        sleep(2);
+        // Verifica recursos órfãos a cada 3 ciclos (3 segundos) para evitar spam
+        if (ciclo_contador % 3 == 0) {
+            verificar_recursos_orfaos(sim);
+        }
+        
+        // Monitoramento mais frequente para aviões em emergência
+        // Força broadcasts adicionais para aviões em alerta
+        bool tem_avioes_criticos = false;
+        pthread_mutex_lock(&sim->mutex_simulacao);
+        for (int i = 0; i < sim->metricas.total_avioes_criados && i < sim->max_avioes; i++) {
+            Aviao* aviao = &sim->avioes[i];
+            if (aviao->id > 0 && aviao->em_alerta && aviao->estado == AGUARDANDO_POUSO) {
+                tem_avioes_criticos = true;
+                break;
+            }
+        }
+        pthread_mutex_unlock(&sim->mutex_simulacao);
+        
+        // Se há aviões críticos, força broadcasts extras para acelerar processamento
+        if (tem_avioes_criticos) {
+            pthread_cond_broadcast(&sim->recursos.cond_torres);
+            pthread_cond_broadcast(&sim->recursos.cond_pistas);
+            usleep(100000); // 0.1 segundo entre verificações quando há emergência
+        } else {
+            sleep(1); // 1 segundo normal
+        }
+        
+        ciclo_contador++;
     }
     
     return NULL;
