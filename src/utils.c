@@ -129,11 +129,52 @@ void verificar_avioes_em_espera(SimulacaoAeroporto* sim) {
     pthread_mutex_unlock(&sim->mutex_simulacao);
 }
 
+// Função para verificar e resolver recursos órfãos
+void verificar_recursos_orfaos(SimulacaoAeroporto* sim) {
+    if (sim == NULL) return;
+    
+    RecursosAeroporto* recursos = &sim->recursos;
+    
+    // Verifica torres órfãs
+    if (recursos->torres_disponiveis > 0 && recursos->fila_torres.tamanho > 0) {
+        pthread_mutex_lock(&recursos->mutex_torres);
+        if (recursos->torres_disponiveis > 0 && recursos->fila_torres.tamanho > 0) {
+            log_evento_ui(sim, NULL, LOG_WARNING, "Detectado torre órfã - forçando broadcast (%d torres, %d na fila)", 
+                         recursos->torres_disponiveis, recursos->fila_torres.tamanho);
+            pthread_cond_broadcast(&recursos->cond_torres);
+        }
+        pthread_mutex_unlock(&recursos->mutex_torres);
+    }
+    
+    // Verifica pistas órfãs
+    if (recursos->pistas_disponiveis > 0 && recursos->fila_pistas.tamanho > 0) {
+        pthread_mutex_lock(&recursos->mutex_pistas);
+        if (recursos->pistas_disponiveis > 0 && recursos->fila_pistas.tamanho > 0) {
+            log_evento_ui(sim, NULL, LOG_WARNING, "Detectado pista órfã - forçando broadcast (%d pistas, %d na fila)", 
+                         recursos->pistas_disponiveis, recursos->fila_pistas.tamanho);
+            pthread_cond_broadcast(&recursos->cond_pistas);
+        }
+        pthread_mutex_unlock(&recursos->mutex_pistas);
+    }
+    
+    // Verifica portões órfãos
+    if (recursos->portoes_disponiveis > 0 && recursos->fila_portoes.tamanho > 0) {
+        pthread_mutex_lock(&recursos->mutex_portoes);
+        if (recursos->portoes_disponiveis > 0 && recursos->fila_portoes.tamanho > 0) {
+            log_evento_ui(sim, NULL, LOG_WARNING, "Detectado portão órfão - forçando broadcast (%d portões, %d na fila)", 
+                         recursos->portoes_disponiveis, recursos->fila_portoes.tamanho);
+            pthread_cond_broadcast(&recursos->cond_portoes);
+        }
+        pthread_mutex_unlock(&recursos->mutex_portoes);
+    }
+}
+
 void* monitorar_avioes(void* arg) {
     SimulacaoAeroporto* sim = (SimulacaoAeroporto*)arg;
     
     while (sim->ativa) {
         verificar_avioes_em_espera(sim);
+        verificar_recursos_orfaos(sim);
         
         // Verifica a cada 2 segundos
         sleep(2);
