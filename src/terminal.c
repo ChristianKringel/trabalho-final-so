@@ -2,26 +2,18 @@
 
 static WINDOW *header_win, *airspace_win, *status_panel_win, *fids_win, *log_win;
 
-// #define PAIR_DEFAULT 1
-// #define PAIR_HEADER  2
-// #define PAIR_INTL    3
-// #define PAIR_DOM     4
-// #define PAIR_ALERT   5
-// #define PAIR_SUCCESS 6
-// #define PAIR_WARNING 6 
+#define MAX_LOG_BUFFER 256
+#define MAX_ID_STR 10
+#define MAX_RESOURCES_STR 10
+#define TIMESTAMP_SIZE 10
+#define PREFIX_SIZE 8
+#define MAX_AIRSPACE_WIDTH (COLS - 15)
 
-// #define LOG_SUCCESS  PAIR_SUCCESS   
-// #define LOG_ERROR    PAIR_ALERT     
-// #define LOG_WARNING  PAIR_WARNING   
-// #define LOG_INFO     PAIR_DEFAULT   
-// #define LOG_SYSTEM   PAIR_HEADER 
-
-#define HEADER_HEIGHT 1
-#define AIRSPACE_HEIGHT 3
-#define STATUS_WIDTH 28
-#define LOG_WIDTH 96
-#define FIDS_WIDTH (COLS - STATUS_WIDTH - LOG_WIDTH)
-#define MAIN_HEIGHT (LINES - HEADER_HEIGHT - AIRSPACE_HEIGHT)
+#define PISTA_FORMAT "P%d: [%s] %-14s"
+#define PORTAO_FORMAT "G%d: [%s] %-14s"
+#define TORRE_FORMAT "T%d: [%s] %-14s"
+#define RECURSO_LIVRE_FORMAT "%c%d: [LIVRE]"
+#define FLIGHT_INFO_FORMAT " %-4s| %-18s | %-8s | %3ds"
 
 void init_terminal_ncurses() {
     initscr();
@@ -43,13 +35,6 @@ void init_terminal_ncurses() {
         printf("Terminal muito pequeno. Minimo recomendado: 120x24\n");
         exit(1);
     }
-
-    // int header_height = 1;
-    // int airspace_height = 2;
-    // int status_width = 28;
-    // int log_width = 96;
-    // int fids_width = COLS - status_width - log_width;
-    // int main_height = LINES - header_height - airspace_height;
 
     init_windows();
 
@@ -331,89 +316,113 @@ static void draw_fids_panel(SimulacaoAeroporto* sim, int voos_ativos) {
     wrefresh(fids_win);
 }
 
-void log_evento_ui(SimulacaoAeroporto* sim, Aviao* aviao, int cor, const char* formato, ...) {
-    if (!sim || !log_win || !formato) return;
-    char buffer[256];
-    va_list args;
-    va_start(args, formato);
-    vsnprintf(buffer, sizeof(buffer), formato, args);
-    va_end(args);
-    
-    pthread_mutex_lock(&sim->mutex_ui_log);
-    if (log_win) {
-        wscrl(log_win, 1);
 
-        int y = getmaxy(log_win) - 2;
-        int x = 1;
-        
-        // Formato de tempo: T:[mm:ss]
-        int tempo_decorrido = difftime(time(NULL), sim->tempo_inicio);
-        int minutos = tempo_decorrido / 60;
-        int segundos = tempo_decorrido % 60;
-        mvwprintw(log_win, y, x, "[%02d:%02d] ", minutos, segundos);
-        x += 9;
-
-        FILE* arquivo_log = fopen("simulacao_log.txt", "a");
-        if (arquivo_log) {
-
-            time_t agora = time(NULL);
-            struct tm* tm_info = localtime(&agora);
-            char timestamp[64];
-            strftime(timestamp, sizeof(timestamp), "%d/%m/%Y %H:%M:%S", tm_info);
-            
-            if (aviao != NULL) {
-                char tipo_char = (aviao->tipo == VOO_DOMESTICO) ? 'D' : 'I';
-                fprintf(arquivo_log, "[%s] %c%02d  %s\n", 
-                       timestamp, tipo_char, aviao->id, buffer);
-            } else {
-                fprintf(arquivo_log, "[%s] [SYSTEM]  %s\n", 
-                       timestamp, buffer);
-            }
-            fclose(arquivo_log);
-        }
-        
-        if (aviao != NULL) {
-            //IDENTIFICA COR PELO TIPO DO VOO
-            int flight_color = (aviao->tipo == VOO_DOMESTICO) ? PAIR_DOM : PAIR_INTL;
-
-            //DEFINE PREFIXO
-            char prefix[5];
-            snprintf(prefix, sizeof(prefix), " %c%02d", (aviao->tipo == VOO_DOMESTICO) ? 'D' : 'I', aviao->id);
-            
-            //ESCREVE PREFIXO COM COR CORRETA
-            wattron(log_win, COLOR_PAIR(flight_color) | A_BOLD);
-            mvwprintw(log_win, y, x, "%s", prefix);
-            wattroff(log_win, COLOR_PAIR(flight_color) | A_BOLD);
-            x += strlen(prefix);
-            
-            mvwprintw(log_win, y, x, "  ");
-            x += 2;
-
-            //ESCREVE A MENSAGEM COM A COR DEFINIDA
-            wattron(log_win, COLOR_PAIR(cor));
-            mvwprintw(log_win, y, x, "%s", buffer);
-            wattroff(log_win, COLOR_PAIR(cor));
-
-        } else {
-            // Mensagens do sistema
-            wattron(log_win, COLOR_PAIR(LOG_SYSTEM) | A_BOLD);
-            mvwprintw(log_win, y, x, "[SYSTEM]");
-            wattroff(log_win, COLOR_PAIR(LOG_SYSTEM) | A_BOLD);
-            x += 8;
-            
-            //mvwprintw(log_win, y, x, "  %s", buffer);
-            wattron(log_win, COLOR_PAIR(cor));
-            mvwprintw(log_win, y, x, "  %s", buffer);
-            wattroff(log_win, COLOR_PAIR(cor));
-        }
-        
-        wclrtoeol(log_win);
-        box(log_win, 0, 0);
-        mvwprintw(log_win, 0, 2, "[LOG]");
-        wrefresh(log_win);
-    }
-    pthread_mutex_unlock(&sim->mutex_ui_log);
+static void finalize_log_display(WINDOW* win) {
+    if (!win) return;
+    wclrtoeol(win);
+    box(win, 0, 0);
+    mvwprintw(win, 0, 2, "[LOG]");
+    wrefresh(win);
 }
 
+static int draw_flight_prefix(WINDOW* win, int y, int x, Aviao* aviao) {
+    if (!win || !aviao || aviao->id <= 0) return x;
 
+    int flight_color = (aviao->tipo == VOO_DOMESTICO) ? PAIR_DOM : PAIR_INTL;
+    char prefix[PREFIX_SIZE];
+    snprintf(prefix, sizeof(prefix), " %c%02d", 
+             (aviao->tipo == VOO_DOMESTICO) ? 'D' : 'I', aviao->id);
+    
+    wattron(win, COLOR_PAIR(flight_color) | A_BOLD);
+    mvwprintw(win, y, x, "%s", prefix);
+    wattroff(win, COLOR_PAIR(flight_color) | A_BOLD);
+    
+    mvwprintw(win, y, x + strlen(prefix), "  ");
+    return x + strlen(prefix) + 2;
+}
 
+static int draw_system_prefix(WINDOW* win, int y, int x) {
+    if (!win) return x;
+    wattron(win, COLOR_PAIR(LOG_SYSTEM) | A_BOLD);
+    mvwprintw(win, y, x, "[SYSTEM]");
+    wattroff(win, COLOR_PAIR(LOG_SYSTEM) | A_BOLD);
+    return x + 8;
+}
+
+static void draw_message_with_color(WINDOW* win, int y, int x, const char* buffer, int cor) {
+    if (!win || !buffer) return;
+
+    int max_y, max_x;
+    getmaxyx(win, max_y, max_x);
+    int max_len = max_x - x - 5;
+
+    wattron(win, COLOR_PAIR(cor));
+    if (max_len > 0) {
+        mvwprintw(win, y, x, "  %.*s", max_len, buffer);
+    }
+    wattroff(win, COLOR_PAIR(cor));
+}
+
+static int draw_timestamp(WINDOW* win, int y, SimulacaoAeroporto* sim) {
+    if (!sim || !win) return 1;
+
+    int tempo_decorrido = difftime(time(NULL), sim->tempo_inicio);
+    int minutos = tempo_decorrido / 60;
+    int segundos = tempo_decorrido % 60;
+    mvwprintw(win, y, 1, "[%02d:%02d] ", minutos, segundos);
+    return 10;
+}
+
+static void display_log_in_window(SimulacaoAeroporto* sim, Aviao* aviao, const char* buffer, int cor) {
+    if (!log_win || !buffer) return;
+
+    int max_y, max_x;
+    getmaxyx(log_win, max_y, max_x);
+    if (max_y <= 2 || max_x <= 2) return;
+    
+    wscrl(log_win, 1);
+    
+    int y = max_y - 2;
+    if (y < 1) y = 1;
+
+    int x = draw_timestamp(log_win, y, sim);
+    
+    if (aviao && aviao->id > 0) {
+        x = draw_flight_prefix(log_win, y, x, aviao);
+        draw_message_with_color(log_win, y, x, buffer, cor);
+    } else {
+        x = draw_system_prefix(log_win, y, x);
+        draw_message_with_color(log_win, y, x, buffer, cor);
+    }
+    
+    finalize_log_display(log_win);
+}
+
+static bool validate_log_params(SimulacaoAeroporto* sim, const char* formato) {
+    return sim && formato;
+}
+
+static void format_log_message(char* buffer, size_t size, const char* formato, va_list args) {
+    if (size == 0 || !buffer || !formato) return;
+
+    vsnprintf(buffer, size - 1, formato, args);
+    buffer[size - 1] = '\0';
+}
+
+void log_evento_ui(SimulacaoAeroporto* sim, Aviao* aviao, int cor, const char* formato, ...) {
+    if (!validate_log_params(sim, formato)) return;
+    
+    char buffer[MAX_LOG_BUFFER];
+    va_list args;
+    va_start(args, formato);
+    format_log_message(buffer, sizeof(buffer), formato, args);
+    va_end(args);
+
+    
+    pthread_mutex_lock(&sim->mutex_ui_log);
+    
+    write_to_log_file(sim, aviao, buffer);
+    display_log_in_window(sim, aviao, buffer, cor);
+    
+    pthread_mutex_unlock(&sim->mutex_ui_log);
+}
