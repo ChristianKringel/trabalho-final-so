@@ -3,6 +3,8 @@
 #include "logger.h"
 #include "header_panel.h"
 #include "queue_panel.h"
+#include "info_panel.h"
+#include "log_panel.h"
 
 #ifndef TERMINAL_H
 #define TERMINAL_H
@@ -10,7 +12,7 @@
 static void init_colors();
 static void init_windows();
 static void draw_status_panel(SimulacaoAeroporto* sim);
-static void draw_fids_panel(SimulacaoAeroporto* sim, int voos_ativos);
+//static void draw_fids_panel(SimulacaoAeroporto* sim, int voos_ativos);
 const char* estado_para_str(EstadoAviao estado);
 void init_terminal_ncurses();
 void close_terminal_ncurses();

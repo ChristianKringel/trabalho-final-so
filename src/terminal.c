@@ -94,7 +94,7 @@ void update_terminal_display(SimulacaoAeroporto* sim) {
     manage_header_panel(sim, voos_ativos, header_win);
     manage_queue_panel(sim, voos_ativos, airspace_win);
     draw_status_panel(sim);
-    draw_fids_panel(sim, voos_ativos);
+    manage_info_panel(sim, voos_ativos, fids_win);
 
     doupdate();
 }
@@ -213,55 +213,6 @@ static void draw_status_panel(SimulacaoAeroporto* sim) {
     
 }
 
-static void draw_fids_panel(SimulacaoAeroporto* sim, int voos_ativos) {
-    wclear(fids_win);
-    box(fids_win, 0, 0);
-    mvwprintw(fids_win, 0, 2, "[FLIGHT INFORMATION DISPLAY SYSTEM]");
-    
-    wattron(fids_win, A_BOLD);
-    mvwhline(fids_win, 1, 2, ACS_HLINE, getmaxx(fids_win) - 4);
-    mvwprintw(fids_win, 2, 2, " Voo | Estado             | Recursos | Espera");
-    wattroff(fids_win, A_BOLD);
-    mvwhline(fids_win, 3, 2, ACS_HLINE, getmaxx(fids_win) - 4);
-
-    int linha_atual = 4;
-    int max_linhas = getmaxy(fids_win) - 1;
-
-    for (int i = 0; i < sim->metricas.total_avioes_criados && linha_atual < max_linhas; i++) {
-        Aviao* aviao = &sim->avioes[i];
-        if (aviao->id > 0 && aviao->estado != FINALIZADO_SUCESSO && aviao->estado < FALHA_DEADLOCK) {
-            int color_pair = aviao->tipo == VOO_DOMESTICO ? PAIR_DOM : PAIR_INTL;
-            wattron(fids_win, COLOR_PAIR(color_pair));
-
-            char id_str[5];
-            snprintf(id_str, sizeof(id_str), "%c%02d", aviao->tipo == VOO_DOMESTICO ? 'D' : 'I', aviao->id);
-            
-            char recursos_str[8];
-            bool tem_pista = false; for(int p=0; p < sim->recursos.total_pistas; ++p) if(sim->recursos.pista_ocupada_por[p] == aviao->id) tem_pista = true;
-            bool tem_portao = false; for(int g=0; g < sim->recursos.total_portoes; ++g) if(sim->recursos.portao_ocupado_por[g] == aviao->id) tem_portao = true;
-            bool tem_torre = (aviao->estado == POUSANDO || aviao->estado == DESEMBARCANDO || aviao->estado == DECOLANDO);
-            //SNPRINTF(FORMATA A STRING PRA SEGUIR UM PADRAO, SEMPRE - - - OU AS VARIAVIES P G T)
-            snprintf(recursos_str, sizeof(recursos_str), "%c %c %c", tem_pista ? 'P' : '-', tem_portao ? 'G' : '-', tem_torre ? 'T' : '-');
-
-            time_t agora = time(NULL);
-            int espera = (aviao->chegada_na_fila > 0) ? difftime(agora, aviao->chegada_na_fila) : 0;
-            
-            mvwprintw(fids_win, linha_atual, 2, " %-4s| %-18s | %-8s | %3ds", 
-                id_str, estado_para_str(aviao->estado), recursos_str, espera);
-
-            if (espera > 60 && aviao->estado != DECOLANDO && aviao->estado != DESEMBARCANDO && aviao->estado != POUSANDO) {
-                wattron(fids_win, COLOR_PAIR(PAIR_ALERT) | A_BOLD);
-                mvwprintw(fids_win, linha_atual, 47, "[ALERTA]");
-                wattroff(fids_win, COLOR_PAIR(PAIR_ALERT) | A_BOLD);
-            }
-
-            wattroff(fids_win, COLOR_PAIR(color_pair));
-            linha_atual++;
-        }
-    }
-    wrefresh(fids_win);
-}
-
 
 static void finalize_log_display(WINDOW* win) {
     if (!win) return;
@@ -276,8 +227,7 @@ static int draw_flight_prefix(WINDOW* win, int y, int x, Aviao* aviao) {
 
     int flight_color = (aviao->tipo == VOO_DOMESTICO) ? PAIR_DOM : PAIR_INTL;
     char prefix[PREFIX_SIZE];
-    snprintf(prefix, sizeof(prefix), " %c%02d", 
-             (aviao->tipo == VOO_DOMESTICO) ? 'D' : 'I', aviao->id);
+    snprintf(prefix, sizeof(prefix), " %c%02d", (aviao->tipo == VOO_DOMESTICO) ? 'D' : 'I', aviao->id);
     
     wattron(win, COLOR_PAIR(flight_color) | A_BOLD);
     mvwprintw(win, y, x, "%s", prefix);
@@ -368,7 +318,7 @@ void log_evento_ui(SimulacaoAeroporto* sim, Aviao* aviao, int cor, const char* f
     pthread_mutex_lock(&sim->mutex_ui_log);
     
     write_to_log_file(sim, aviao, buffer);
-    display_log_in_window(sim, aviao, buffer, cor);
-    
+    manage_log_panel(sim, aviao, buffer, cor, log_win);
+
     pthread_mutex_unlock(&sim->mutex_ui_log);
 }
