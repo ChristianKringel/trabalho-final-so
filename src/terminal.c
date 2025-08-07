@@ -81,125 +81,28 @@ static void init_colors() {
     init_pair(PAIR_DEBUG, COLOR_BLACK, COLOR_WHITE);          // Cinza para debug
 }
 
+static void get_active_planes(SimulacaoAeroporto* sim, int* voos_ativos) {
+    if (!sim || !voos_ativos) return;
+
+    for (int i = 0; i < sim->metricas.total_avioes_criados; i++) {
+        if (sim->avioes[i].id > 0 && sim->avioes[i].estado != FINALIZADO_SUCESSO && sim->avioes[i].estado < FALHA_DEADLOCK) {
+            (*voos_ativos)++;
+        }
+    }
+}
 void update_terminal_display(SimulacaoAeroporto* sim) {
     if (!sim) return;
 
     int voos_ativos = 0;
-    for (int i = 0; i < sim->metricas.total_avioes_criados; i++) {
-        if (sim->avioes[i].id > 0 && sim->avioes[i].estado != FINALIZADO_SUCESSO && sim->avioes[i].estado < FALHA_DEADLOCK) {
-            voos_ativos++;
-        }
-    }
+    get_active_planes(sim, &voos_ativos);
 
     manage_header_panel(sim, voos_ativos, header_win);
-    manage_queue_panel(sim, voos_ativos, airspace_win);
-    manage_status_panel(sim, voos_ativos, status_win);
-   //draw_status_panel(sim);
-    manage_info_panel(sim, voos_ativos, fids_win);
+    manage_queue_panel(sim, airspace_win);
+    manage_status_panel(sim, status_win);
+    manage_info_panel(sim, fids_win);
 
     doupdate();
 }
-
-// static void draw_status_panel(SimulacaoAeroporto* sim) {
-//     wclear(status_panel_win);
-//     box(status_panel_win, 0, 0);
-//     mvwprintw(status_panel_win, 0, 2, "[AIRPORT STATUS]");
-    
-//     // Seção Pistas
-//     mvwhline(status_panel_win, 1, 2, ACS_HLINE, getmaxx(status_panel_win) - 4);
-//     mvwprintw(status_panel_win, 2, 2, "[PISTAS]");
-    
-//     int linha_pistas = 3;
-//     for (int i = 0; i < sim->recursos.total_pistas; i++) {
-//         int aviao_id = sim->recursos.pista_ocupada_por[i];
-//         if (aviao_id != -1) {
-//             char id_str[5];
-//             char tipo_char = sim->avioes[aviao_id-1].tipo == VOO_DOMESTICO ? 'D' : 'I';
-//             snprintf(id_str, sizeof(id_str), "%c%02d", tipo_char, aviao_id);
-//             int color_pair = sim->avioes[aviao_id-1].tipo == VOO_DOMESTICO ? PAIR_DOM : PAIR_INTL;
-            
-//             wattron(status_panel_win, COLOR_PAIR(color_pair));
-//             mvwprintw(status_panel_win, linha_pistas + i, 2, "P%d: [%s] %-14s", i, id_str, estado_para_str(sim->avioes[aviao_id - 1].estado));
-//             wattroff(status_panel_win, COLOR_PAIR(color_pair));
-//         } else {
-//             wattron(status_panel_win, COLOR_PAIR(PAIR_SUCCESS));
-//             mvwprintw(status_panel_win, linha_pistas + i, 2, "P%d: [LIVRE]", i);
-//             wattroff(status_panel_win, COLOR_PAIR(PAIR_SUCCESS));
-//         }
-//     }
-
-//     mvwhline(status_panel_win, linha_pistas + sim->recursos.total_pistas, 2, ACS_HLINE, getmaxx(status_panel_win) - 4);
-
-//     // Seção Portões
-//     int linha_portoes = linha_pistas + sim->recursos.total_pistas + 1;
-//     mvwprintw(status_panel_win, linha_portoes, 2, "[PORTOES]");
-//     for (int i = 0; i < sim->recursos.total_portoes; i++) {
-//         int aviao_id = sim->recursos.portao_ocupado_por[i];
-//         if (aviao_id != -1) {
-//             char id_str[5];
-//             char tipo_char = sim->avioes[aviao_id - 1].tipo == VOO_DOMESTICO ? 'D' : 'I';
-//             snprintf(id_str, sizeof(id_str), "%c%02d", tipo_char, aviao_id);
-//             int color_pair = sim->avioes[aviao_id - 1].tipo == VOO_DOMESTICO ? PAIR_DOM : PAIR_INTL;
-            
-//             wattron(status_panel_win, COLOR_PAIR(color_pair));
-//             mvwprintw(status_panel_win, linha_portoes + 1 + i, 2, "G%d: [%s] %-14s", i, id_str, estado_para_str(sim->avioes[aviao_id - 1].estado));
-//             wattroff(status_panel_win, COLOR_PAIR(color_pair));
-//         } else {
-//             wattron(status_panel_win, COLOR_PAIR(PAIR_SUCCESS));
-//             mvwprintw(status_panel_win, linha_portoes + 1 + i, 2, "G%d: [LIVRE]", i);
-//             wattroff(status_panel_win, COLOR_PAIR(PAIR_SUCCESS));
-//         }
-//     }
-
-//     mvwhline(status_panel_win, linha_portoes + 1 + sim->recursos.total_portoes, 2, ACS_HLINE, getmaxx(status_panel_win) - 4);
-
-//     // Seção Torres
-//     int linha_torres = linha_portoes + 1 + sim->recursos.total_portoes + 1;
-//     mvwprintw(status_panel_win, linha_torres, 2, "[TORRES]");
-
-//     int torres_ocupadas = sim->recursos.total_torres - sim->recursos.torres_disponiveis;
-    
-//     for (int i = 0; i < sim->recursos.total_torres; i++) {
-//         // Verificar se algum avião está usando uma torre
-//         bool torre_ocupada = false;
-//         int aviao_usando_torre = -1;
-        
-//         // Procurar por aviões que estão em estados que usam torre
-//         for (int j = 0; j < sim->metricas.total_avioes_criados; j++) {
-//             if (sim->avioes[j].id > 0 && sim->avioes[j].torre_alocada && 
-//                 (sim->avioes[j].estado == POUSANDO || sim->avioes[j].estado == DESEMBARCANDO || sim->avioes[j].estado == DECOLANDO)) {
-//                 if (!torre_ocupada) { 
-//                     torre_ocupada = true;
-//                     aviao_usando_torre = sim->avioes[j].id;
-//                     break;
-//                 }
-//             }
-//         }
-        
-//         if (torre_ocupada && aviao_usando_torre != -1) {
-//             char id_str[5];
-//             char tipo_char = sim->avioes[aviao_usando_torre-1].tipo == VOO_DOMESTICO ? 'D' : 'I';
-//             snprintf(id_str, sizeof(id_str), "%c%02d", tipo_char, aviao_usando_torre);
-//             int color_pair = sim->avioes[aviao_usando_torre-1].tipo == VOO_DOMESTICO ? PAIR_DOM : PAIR_INTL;
-            
-//             wattron(status_panel_win, COLOR_PAIR(color_pair));
-//             mvwprintw(status_panel_win, linha_torres + 1 + i, 2, "T%d: [%s] %-14s", i, id_str, estado_para_str(sim->avioes[aviao_usando_torre - 1].estado));
-//             wattroff(status_panel_win, COLOR_PAIR(color_pair));
-//         } else {
-//             wattron(status_panel_win, COLOR_PAIR(PAIR_SUCCESS));
-//             mvwprintw(status_panel_win, linha_torres + 1 + i, 2, "T%d: [LIVRE]", i);
-//             wattroff(status_panel_win, COLOR_PAIR(PAIR_SUCCESS));
-//         }
-//     }
-
-//     mvwhline(status_panel_win, linha_torres + 1 + sim->recursos.total_torres, 2, ACS_HLINE, getmaxx(status_panel_win) - 4);
-
-//     // Secao Legendas
-//     
-
-//     wrefresh(status_panel_win);
-    
-// }
 
 static bool validate_log_params(SimulacaoAeroporto* sim, const char* formato) {
     return sim && formato;
