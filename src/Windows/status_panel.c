@@ -2,12 +2,12 @@
 #include "../../include/terminal.h"
 
 #define LANE_SECTION_START 1
-#define GATE_SECTION_START 3
-#define TOWER_SECTION_START 5
+#define GATE_SECTION_START 7
+#define TOWER_SECTION_START 15
 
 #define LANE_LINE 3
-#define GATE_LINE 5
-#define TOWER_LINE 7
+#define GATE_LINE 9
+#define TOWER_LINE 17
 
 static void draw_window_title(WINDOW* win, const char* title) {
     if (!win || !title) return;
@@ -27,7 +27,7 @@ static void draw_window_section_separator(WINDOW* win, int linha) {
 }
 
 
-static void draw_pistas_section(SimulacaoAeroporto* sim, WINDOW* win, int start_line) {
+static void draw_lane_section(SimulacaoAeroporto* sim, WINDOW* win, int start_line) {
     if (!sim || !win) return;
 
 
@@ -54,30 +54,71 @@ static void draw_pistas_section(SimulacaoAeroporto* sim, WINDOW* win, int start_
     draw_window_section_separator(win, LANE_LINE + 1 + sim->recursos.total_pistas);
 }
 
-//for (int i = 0; i < sim->recursos.total_pistas; i++) {
-//         int aviao_id = sim->recursos.pista_ocupada_por[i];
-//         if (aviao_id != -1) {
-//             char id_str[5];
-//             char tipo_char = sim->avioes[aviao_id-1].tipo == VOO_DOMESTICO ? 'D' : 'I';
-//             snprintf(id_str, sizeof(id_str), "%c%02d", tipo_char, aviao_id);
-//             int color_pair = sim->avioes[aviao_id-1].tipo == VOO_DOMESTICO ? PAIR_DOM : PAIR_INTL;
-            
-//             wattron(status_panel_win, COLOR_PAIR(color_pair));
-//             mvwprintw(status_panel_win, linha_pistas + i, 2, "P%d: [%s] %-14s", i, id_str, estado_para_str(sim->avioes[aviao_id - 1].estado));
-//             wattroff(status_panel_win, COLOR_PAIR(color_pair));
-//         } else {
-//             wattron(status_panel_win, COLOR_PAIR(PAIR_SUCCESS));
-//             mvwprintw(status_panel_win, linha_pistas + i, 2, "P%d: [LIVRE]", i);
-//             wattroff(status_panel_win, COLOR_PAIR(PAIR_SUCCESS));
-//         }
-//     }
+static void draw_gate_section(SimulacaoAeroporto* sim, WINDOW* win, int start_line) {
+    if (!sim || !win) return;
 
-static void draw_portoes_section(SimulacaoAeroporto* sim, WINDOW* win, int start_line) {
-    // Lógica para desenhar a seção de portões  
+    draw_window_section_tittle(win, GATE_SECTION_START, "PORTOES");
+    
+    for (int i = 0; i < sim->recursos.total_portoes; i++) {
+        int aviao_id = sim->recursos.portao_ocupado_por[i];
+        if (aviao_id != -1) {
+            char id_str[5];
+            char tipo_char = sim->avioes[aviao_id - 1].tipo == VOO_DOMESTICO ? 'D' : 'I';
+            snprintf(id_str, sizeof(id_str), "%c%02d", tipo_char, aviao_id);
+            int color_pair = sim->avioes[aviao_id - 1].tipo == VOO_DOMESTICO ? PAIR_DOM : PAIR_INTL;
+            
+            wattron(win, COLOR_PAIR(color_pair));
+            mvwprintw(win, GATE_LINE + 1 + i, 2, "G%d: [%s] %-14s", i, id_str, estado_para_str(sim->avioes[aviao_id - 1].estado));
+            wattroff(win, COLOR_PAIR(color_pair));
+        } else {
+            wattron(win, COLOR_PAIR(PAIR_SUCCESS));
+            mvwprintw(win, GATE_LINE + 1 + i, 2, "G%d: [LIVRE]", i);
+            wattroff(win, COLOR_PAIR(PAIR_SUCCESS));
+        }
+    }
+
+    draw_window_section_separator(win, GATE_LINE + 1 + sim->recursos.total_portoes);
 }
 
-static void draw_torres_section(SimulacaoAeroporto* sim, WINDOW* win, int start_line) {
-    // Lógica para desenhar a seção de torres
+static void draw_tower_section(SimulacaoAeroporto* sim, WINDOW* win, int start_line) {
+    if (!sim || !win) return;
+
+    draw_window_section_tittle(win, TOWER_SECTION_START, "TORRES");
+    
+    for (int i = 0; i < sim->recursos.total_torres; i++) {
+        // Verificar se algum avião está usando uma torre
+        bool torre_ocupada = false;
+        int aviao_usando_torre = -1;
+        
+        // Procurar por aviões que estão em estados que usam torre
+        for (int j = 0; j < sim->metricas.total_avioes_criados; j++) {
+            if (sim->avioes[j].id > 0 && sim->avioes[j].torre_alocada && 
+                (sim->avioes[j].estado == POUSANDO || sim->avioes[j].estado == DESEMBARCANDO || sim->avioes[j].estado == DECOLANDO)) {
+                if (!torre_ocupada) { 
+                    torre_ocupada = true;
+                    aviao_usando_torre = sim->avioes[j].id;
+                    break;
+                }
+            }
+        }
+        
+        if (torre_ocupada && aviao_usando_torre != -1) {
+            char id_str[5];
+            char tipo_char = sim->avioes[aviao_usando_torre-1].tipo == VOO_DOMESTICO ? 'D' : 'I';
+            snprintf(id_str, sizeof(id_str), "%c%02d", tipo_char, aviao_usando_torre);
+            int color_pair = sim->avioes[aviao_usando_torre-1].tipo == VOO_DOMESTICO ? PAIR_DOM : PAIR_INTL;
+            
+            wattron(win, COLOR_PAIR(color_pair));
+            mvwprintw(win, TOWER_LINE + 1 + i, 2, "T%d: [%s] %-14s", i, id_str, estado_para_str(sim->avioes[aviao_usando_torre - 1].estado));
+            wattroff(win, COLOR_PAIR(color_pair));
+        } else {
+            wattron(win, COLOR_PAIR(PAIR_SUCCESS));
+            mvwprintw(win, TOWER_LINE + 1 + i, 2, "T%d: [LIVRE]", i);
+            wattroff(win, COLOR_PAIR(PAIR_SUCCESS));
+        }
+    }
+
+    draw_window_section_separator(win, TOWER_LINE + 1 + sim->recursos.total_torres);
 }
 
 void manage_status_panel(SimulacaoAeroporto* sim, int voos_ativos, WINDOW* status_win){
@@ -86,9 +127,10 @@ void manage_status_panel(SimulacaoAeroporto* sim, int voos_ativos, WINDOW* statu
     wclear(status_win);
     draw_window_title(status_win, "[AIRPORT STATUS]");
 
-    draw_pistas_section(sim, status_win, LANE_SECTION_START);
-    //draw_portoes_section(sim, status_win, GATE_SECTION_START);
-    //draw_torres_section(sim, status_win, TOWER_SECTION_START);
+    draw_lane_section(sim, status_win, LANE_SECTION_START);
+    draw_gate_section(sim, status_win, GATE_SECTION_START);
+    draw_tower_section(sim, status_win, TOWER_SECTION_START);
+
     
     wrefresh(status_win);
 }
