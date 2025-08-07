@@ -82,9 +82,9 @@ static bool check_flight_has_runway(SimulacaoAeroporto* sim, int aviao_id) {
 static void format_flight_resources(char* recursos_str, size_t size, SimulacaoAeroporto* sim, Aviao* aviao) {
     if (!recursos_str || !sim || !aviao || size < 8) return;
     
-    bool tem_pista = check_flight_has_runway(sim, aviao->id);
+    bool tem_pista  = check_flight_has_runway(sim, aviao->id);
     bool tem_portao = check_flight_has_gate(sim, aviao->id);
-    bool tem_torre = check_flight_has_tower(aviao);
+    bool tem_torre  = check_flight_has_tower(aviao);
     
     snprintf(recursos_str, size, "%c %c %c", 
              tem_pista ? 'P' : '-', 
@@ -144,6 +144,12 @@ static void draw_flight_info_tittle(WINDOW* win) {
     mvwprintw(win, 0, 2, "[FLIGHT INFORMATION DISPLAY SYSTEM]");
 }
 
+static void draw_window_title(WINDOW* win, const char* title) {
+    if (!win || !title) return;
+    box(win, 0, 0);
+    mvwprintw(win, 0, 2, "%s", title);
+}
+
 static void draw_flight_info_headers(WINDOW* win) {
     if (!win) return;
     wattron(win, A_BOLD);
@@ -153,7 +159,12 @@ static void draw_flight_info_headers(WINDOW* win) {
     mvwhline(win, 3, 2, ACS_HLINE, getmaxx(win) - 4);
 }
 
-
+// static bool verify_space(WINDOW* win, int y, int x, const char* str) {
+//     if (!win || !str) return false;
+//     int max_y, max_x;
+//     getmaxyx(win, max_y, max_x);
+//     return (y >= 0 && y < max_y && x >= 0 && x + strlen(str) < max_x);
+// }
 
 void manage_info_panel(SimulacaoAeroporto* sim, int voos_ativos, WINDOW* info_win) {
     if (!sim || !info_win) return;
@@ -167,7 +178,7 @@ void manage_info_panel(SimulacaoAeroporto* sim, int voos_ativos, WINDOW* info_wi
         return;
     }
 
-    draw_flight_info_tittle(info_win);
+    draw_window_title(info_win, "[INFORMATION PANEL]");
     draw_flight_info_headers(info_win);
     draw_fids_flights(info_win, sim);
     finalize_fids_display(info_win);

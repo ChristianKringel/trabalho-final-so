@@ -23,16 +23,16 @@ static int get_tower_status(SimulacaoAeroporto* sim) {
 
 static void draw_header_content(SimulacaoAeroporto* sim, int voos_ativos, WINDOW* win) {
     if (!sim || !win) return;
-    
-    int pistas_ocupadas = get_lane_status(sim);
-    int portoes_ocupados = get_gate_status(sim);
-    int torres_ocupadas = get_tower_status(sim);
-    const char* status_sim = get_status(sim);
-    
-    mvwprintw(win, 0, 1, 
-              "SIMULACAO TRAFEGO AEROPORTO: %-9s | Tempo: %03d/%ds | Voos: %-2d | Pistas: %d/%d | Portoes: %d/%d | Torres: %d/%d", 
-              status_sim, 
-              (int)difftime(time(NULL), sim->tempo_inicio), 
+
+    int pistas_ocupadas      = get_lane_status(sim);
+    int portoes_ocupados     = get_gate_status(sim);
+    int torres_ocupadas      = get_tower_status(sim);
+    const char* status_sim   = get_status(sim);
+
+    mvwprintw(win, 0, 1,
+              "SIMULACAO TRAFEGO AEROPORTO: %-9s | Tempo: %03d/%ds | Voos: %-2d | Pistas: %d/%d | Portoes: %d/%d | Torres: %d/%d",
+              status_sim,
+              (int)difftime(time(NULL), sim->tempo_inicio),
               sim->tempo_simulacao, 
               voos_ativos, 
               pistas_ocupadas, sim->recursos.total_pistas, 
