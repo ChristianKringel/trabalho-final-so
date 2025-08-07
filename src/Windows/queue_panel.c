@@ -75,7 +75,7 @@ static void draw_queue_indicators(WINDOW* win, int col_atual, int avioes_mostrad
     mvwprintw(win, 0, 19, "(Total: %d)", total_aguardando);
 }
 
-void manage_queue_panel(SimulacaoAeroporto* sim, int voos_ativos, WINDOW* queue_win) {
+void manage_queue_panel(SimulacaoAeroporto* sim, WINDOW* queue_win) {
     if (!sim || !queue_win) return;
 
     wclear(queue_win);

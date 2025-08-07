@@ -21,7 +21,7 @@ typedef struct {
     int color_pair;
 } FidsFlightInfo;
 
-void manage_info_panel(SimulacaoAeroporto* sim, int voos_ativos, WINDOW* fids_win);
+void manage_info_panel(SimulacaoAeroporto* sim, WINDOW* fids_win);
 
 
 #endif

@@ -4,7 +4,7 @@
 #include "libs.h"
 #include "utils.h"
 
-void manage_status_panel(SimulacaoAeroporto* sim, int voos_ativos, WINDOW* status_win);
+void manage_status_panel(SimulacaoAeroporto* sim, WINDOW* status_win);
 
 
 #endif

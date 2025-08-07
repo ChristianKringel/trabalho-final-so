@@ -139,7 +139,7 @@ static void draw_legend_section(WINDOW* win, int start_line) {
     wattroff(win, COLOR_PAIR(PAIR_SUCCESS) | A_BOLD);
 }
 
-void manage_status_panel(SimulacaoAeroporto* sim, int voos_ativos, WINDOW* status_win){
+void manage_status_panel(SimulacaoAeroporto* sim, WINDOW* status_win){
     if (!sim || !status_win) return;
 
     wclear(status_win);

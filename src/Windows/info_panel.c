@@ -166,7 +166,7 @@ static void draw_flight_info_headers(WINDOW* win) {
 //     return (y >= 0 && y < max_y && x >= 0 && x + strlen(str) < max_x);
 // }
 
-void manage_info_panel(SimulacaoAeroporto* sim, int voos_ativos, WINDOW* info_win) {
+void manage_info_panel(SimulacaoAeroporto* sim, WINDOW* info_win) {
     if (!sim || !info_win) return;
 
     int max_y, max_x;
