@@ -44,8 +44,6 @@ static void draw_airplane_id(WINDOW* win, int y, int x, Aviao* aviao) {
     wattron(win, COLOR_PAIR(flight_color) | A_BOLD);
     mvwprintw(win, y, x, "%s", prefix);
     wattroff(win, COLOR_PAIR(flight_color) | A_BOLD);
-    
-    //mvwprintw(win, y, x + strlen(prefix), "  ");
 }
 
 static int draw_airplane_queue(SimulacaoAeroporto* sim, WINDOW* win, int* col_atual) {
