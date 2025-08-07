@@ -91,66 +91,12 @@ void update_terminal_display(SimulacaoAeroporto* sim) {
         }
     }
 
-    draw_header(sim, voos_ativos);
-    draw_airspace_panel(sim);
+    manage_header_panel(sim, voos_ativos, header_win);
+    manage_queue_panel(sim, voos_ativos, airspace_win);
     draw_status_panel(sim);
     draw_fids_panel(sim, voos_ativos);
 
     doupdate();
-}
-
-static void draw_header(SimulacaoAeroporto* sim, int voos_ativos) {
-    wbkgd(header_win, COLOR_PAIR(PAIR_HEADER));
-    wclear(header_win);
-    
-    int pistas_ocupadas = sim->recursos.total_pistas - sim->recursos.pistas_disponiveis;
-    int portoes_ocupados = sim->recursos.total_portoes - sim->recursos.portoes_disponiveis;
-    int torres_ocupadas = sim->recursos.total_torres - sim->recursos.torres_disponiveis;
-    const char* status_sim = sim->ativa ? (sim->pausado ? "PAUSADO" : "ATIVA") : "FINALIZANDO";
-
-    //ARRUMAR CONTAGEM DE TEMPO 
-    mvwprintw(header_win, 0, 1, "SIMULACAO TRAFEGO AEROPORTO: %-9s | Tempo: %03d/%ds | Voos: %-2d | Pistas: %d/%d | Portoes: %d/%d | Torres: %d/%d",
-              status_sim, (int)difftime(time(NULL), sim->tempo_inicio), sim->tempo_simulacao,
-              voos_ativos, pistas_ocupadas, sim->recursos.total_pistas, portoes_ocupados, sim->recursos.total_portoes, torres_ocupadas, sim->recursos.total_torres);
-              
-    mvwprintw(header_win, 0, COLS - 25, "[P] Pausar | [Q] Sair");
-    wrefresh(header_win);
-}
-
-static void draw_airspace_panel(SimulacaoAeroporto* sim) {
-    wclear(airspace_win);
-    
-    box(airspace_win, 0, 0);
-    mvwprintw(airspace_win, 0, 2, "[AIRSPACE QUEUE]");
-    
-    int col_atual = 2;
-
-    int total_aguardando = 0;
-    int avioes_mostrados = 0;
-    for (int i = 0; i < sim->metricas.total_avioes_criados; i++) {
-        if (sim->avioes[i].id > 0 && sim->avioes[i].estado == AGUARDANDO_POUSO) {
-            total_aguardando++;
-            
-            char id_str[10];
-            char tipo_char = sim->avioes[i].tipo == VOO_DOMESTICO ? 'D' : 'I';
-            snprintf(id_str, sizeof(id_str), "%c%02d · ", tipo_char, sim->avioes[i].id);
-
-            if (col_atual + strlen(id_str) < COLS - 15) {
-                int color_pair = sim->avioes[i].tipo == VOO_DOMESTICO ? PAIR_DOM : PAIR_INTL;
-                wattron(airspace_win, COLOR_PAIR(color_pair));
-                mvwprintw(airspace_win, 1, col_atual, "%s", id_str);
-                wattroff(airspace_win, COLOR_PAIR(color_pair));
-                col_atual += strlen(id_str);
-                avioes_mostrados++;
-            }
-        }
-    }
-    
-    if (avioes_mostrados < total_aguardando) {
-        mvwprintw(airspace_win, 1, col_atual, "... ");
-    }
-    mvwprintw(airspace_win, 0, 19, "(Total: %d)", total_aguardando);
-    wrefresh(airspace_win);
 }
 
 static void draw_status_panel(SimulacaoAeroporto* sim) {
