@@ -5,13 +5,14 @@
 #include "queue_panel.h"
 #include "info_panel.h"
 #include "log_panel.h"
+#include "status_panel.h"
 
 #ifndef TERMINAL_H
 #define TERMINAL_H
 
 static void init_colors();
 static void init_windows();
-static void draw_status_panel(SimulacaoAeroporto* sim);
+//static void draw_status_panel(SimulacaoAeroporto* sim);
 //static void draw_fids_panel(SimulacaoAeroporto* sim, int voos_ativos);
 const char* estado_para_str(EstadoAviao estado);
 void init_terminal_ncurses();
@@ -22,11 +23,6 @@ void update_terminal_display(SimulacaoAeroporto* sim);
 void log_evento_ui(SimulacaoAeroporto* sim, Aviao* aviao, int cor, const char* formato, ...);
 static bool validate_log_params(SimulacaoAeroporto* sim, const char* formato);
 static void format_log_message(char* buffer, size_t size, const char* formato, va_list args);
-static void display_log_in_window(SimulacaoAeroporto* sim, Aviao* aviao, const char* buffer, int cor);
-static int draw_timestamp(WINDOW* win, int y, SimulacaoAeroporto* sim);
-static int draw_flight_prefix(WINDOW* win, int y, int x, Aviao* aviao);
-static int draw_system_prefix(WINDOW* win, int y, int x);
-static void draw_message_with_color(WINDOW* win, int y, int x, const char* buffer, int cor);
 static void finalize_log_display(WINDOW* win);
 
 
