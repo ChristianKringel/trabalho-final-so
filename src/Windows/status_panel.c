@@ -4,6 +4,7 @@
 #define LANE_SECTION_START 1
 #define GATE_SECTION_START 7
 #define TOWER_SECTION_START 15
+#define LEGEND_SECTION_START 23
 
 #define LANE_LINE 3
 #define GATE_LINE 9
@@ -26,7 +27,8 @@ static void draw_window_section_separator(WINDOW* win, int linha) {
     mvwhline(win, linha, 2, ACS_HLINE, getmaxx(win) - 4);
 }
 
-
+// USAR VARIAVEL LOCAL AO INVES DE VARIAVEL GLOBAL
+// USAR start_line variavel para definir a linha inicial
 static void draw_lane_section(SimulacaoAeroporto* sim, WINDOW* win, int start_line) {
     if (!sim || !win) return;
 
@@ -86,11 +88,9 @@ static void draw_tower_section(SimulacaoAeroporto* sim, WINDOW* win, int start_l
     draw_window_section_tittle(win, TOWER_SECTION_START, "TORRES");
     
     for (int i = 0; i < sim->recursos.total_torres; i++) {
-        // Verificar se algum avião está usando uma torre
         bool torre_ocupada = false;
         int aviao_usando_torre = -1;
         
-        // Procurar por aviões que estão em estados que usam torre
         for (int j = 0; j < sim->metricas.total_avioes_criados; j++) {
             if (sim->avioes[j].id > 0 && sim->avioes[j].torre_alocada && 
                 (sim->avioes[j].estado == POUSANDO || sim->avioes[j].estado == DESEMBARCANDO || sim->avioes[j].estado == DECOLANDO)) {
@@ -121,6 +121,24 @@ static void draw_tower_section(SimulacaoAeroporto* sim, WINDOW* win, int start_l
     draw_window_section_separator(win, TOWER_LINE + 1 + sim->recursos.total_torres);
 }
 
+static void draw_legend_section(WINDOW* win, int start_line) {
+    if (!win) return;
+
+    mvwprintw(win, LEGEND_SECTION_START, 2, "[LEGENDA]");
+    mvwprintw(win, LEGEND_SECTION_START + 1, 2, "DXX: Voo Domestico");
+    mvwprintw(win, LEGEND_SECTION_START + 2, 2, "IXX: Voo Internacional");
+    mvwprintw(win, LEGEND_SECTION_START + 3, 2, "P:   Pista");
+    mvwprintw(win, LEGEND_SECTION_START + 4, 2, "G:   Portão");
+    mvwprintw(win, LEGEND_SECTION_START + 5, 2, "T:   Torre");
+    mvwprintw(win, LEGEND_SECTION_START + 7, 2, "PLACEHOLDER");
+    wattron(win, COLOR_PAIR(PAIR_ALERT) | A_BOLD);
+    mvwprintw(win, LEGEND_SECTION_START + 8, 2, "ALERTA = PLACEHOLDER");
+    wattroff(win, COLOR_PAIR(PAIR_ALERT) | A_BOLD);
+    wattron(win, COLOR_PAIR(PAIR_SUCCESS) | A_BOLD);
+    mvwprintw(win, LEGEND_SECTION_START + 9, 2, "ALERTA = PLACEHOLDER");
+    wattroff(win, COLOR_PAIR(PAIR_SUCCESS) | A_BOLD);
+}
+
 void manage_status_panel(SimulacaoAeroporto* sim, int voos_ativos, WINDOW* status_win){
     if (!sim || !status_win) return;
 
@@ -131,6 +149,6 @@ void manage_status_panel(SimulacaoAeroporto* sim, int voos_ativos, WINDOW* statu
     draw_gate_section(sim, status_win, GATE_SECTION_START);
     draw_tower_section(sim, status_win, TOWER_SECTION_START);
 
-    
+    draw_legend_section(status_win, LEGEND_SECTION_START);
     wrefresh(status_win);
 }

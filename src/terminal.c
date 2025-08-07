@@ -195,20 +195,7 @@ void update_terminal_display(SimulacaoAeroporto* sim) {
 //     mvwhline(status_panel_win, linha_torres + 1 + sim->recursos.total_torres, 2, ACS_HLINE, getmaxx(status_panel_win) - 4);
 
 //     // Secao Legendas
-//     int linha_legendas = linha_torres + 1 + sim->recursos.total_torres + 1;
-//     mvwprintw(status_panel_win, linha_legendas, 2, "[LEGENDA]");
-//     mvwprintw(status_panel_win, linha_legendas + 1, 2, "DXX: Voo Domestico");
-//     mvwprintw(status_panel_win, linha_legendas + 2, 2, "IXX: Voo Internacional");
-//     mvwprintw(status_panel_win, linha_legendas + 3, 2, "P:   Pista");
-//     mvwprintw(status_panel_win, linha_legendas + 4, 2, "G:   Portão");
-//     mvwprintw(status_panel_win, linha_legendas + 5, 2, "T:   Torre");
-//     mvwprintw(status_panel_win, linha_legendas + 7, 2, "PLACEHOLDER");
-//     wattron(status_panel_win, COLOR_PAIR(PAIR_ALERT) | A_BOLD);
-//     mvwprintw(status_panel_win, linha_legendas + 8, 2, "ALERTA = PLACEHOLDER");
-//     wattroff(status_panel_win, COLOR_PAIR(PAIR_ALERT) | A_BOLD);
-//     wattron(status_panel_win, COLOR_PAIR(PAIR_SUCCESS) | A_BOLD);
-//     mvwprintw(status_panel_win, linha_legendas + 9, 2, "ALERTA = PLACEHOLDER");
-//     wattroff(status_panel_win, COLOR_PAIR(PAIR_SUCCESS) | A_BOLD);
+//     
 
 //     wrefresh(status_panel_win);
     
