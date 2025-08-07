@@ -15,10 +15,11 @@ LIBS = -pthread -lncurses
 
 # --- Geração Automática de Arquivos ---
 
-# Encontra todos os arquivos .c em 'src'
-SRCS = $(wildcard $(SRCDIR)/*.c)
+# Encontra todos os arquivos .c em 'src' e suas subpastas
+SRCS = $(shell find $(SRCDIR) -name "*.c")
 
 # Gera a lista de arquivos objeto (.o) correspondentes, que serão criados em 'obj'
+# Mantém a estrutura de subpastas em obj/
 OBJS = $(patsubst $(SRCDIR)/%.c,$(OBJDIR)/%.o,$(SRCS))
 
 # --- Regras Principais ---
