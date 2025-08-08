@@ -14,20 +14,40 @@ void draw_window_title(WINDOW* win, const char* title) {
     draw_window_title_full(win, title, false);
 }
 
-void draw_window_section_title_full(WINDOW* win, int linha, const char* title, bool bold) {
+void draw_window_section_title_full(WINDOW* win, int line, const char* title, bool bold) {
     if (!win || !title) return;
     if (bold) { wattron(win, A_BOLD); }
 
-    mvwhline(win, linha, 2, ACS_HLINE, getmaxx(win) - 4);
-    mvwprintw(win, linha + 1, 2, "%s", title);
+    mvwhline(win, line, 2, ACS_HLINE, getmaxx(win) - 4);
+    mvwprintw(win, line + 1, 2, "%s", title);
 
     if (bold) { wattroff(win, A_BOLD); }
 }
 
-void draw_horizontal_separator(WINDOW* win, int linha) {
+void draw_window_section_title(WINDOW* win, int line, const char* title) {
+    draw_window_section_title_full(win, line, title, false);
+}
+
+void draw_window_text_full(WINDOW* win, int line, int column, const char* text, bool bold, int cor) {
+    if (!win || !text) return;
+    
+    if (cor != 0) wattron(win, COLOR_PAIR(cor));
+    if (bold) wattron(win, A_BOLD);
+
+    mvwprintw(win, line, column, "%s", text);
+
+    if (bold) wattroff(win, A_BOLD);
+    if (cor != 0) wattroff(win, COLOR_PAIR(cor));
+}
+
+void draw_window_text(WINDOW* win, int line, int column, const char* text, int cor) {
+    draw_window_text_full(win, line, column, text, false, cor);
+}
+
+void draw_horizontal_separator(WINDOW* win, int line) {
     if (!win) return;
     
-    mvwhline(win, linha, 2, ACS_HLINE, getmaxx(win) - 4);
+    mvwhline(win, line, 2, ACS_HLINE, getmaxx(win) - 4);
 }
 
 void finalize_window_display(WINDOW* win) {
@@ -43,6 +63,16 @@ void clear_and_box_window(WINDOW* win) {
     box(win, 0, 0);
 }
 
+int get_waiting_airplanes(SimulacaoAeroporto* sim) {
+    if (!sim) return 0;
+    int count = 0;
+    for (int i = 0; i < sim->metricas.total_avioes_criados; i++) {
+        if (sim->avioes[i].id > 0 && sim->avioes[i].estado == AGUARDANDO_POUSO) {
+            count++;
+        }
+    }
+    return count;
+}
 // bool validate_window_params(WINDOW* win, void* data) {
 //     return win && data;
 // }
@@ -63,18 +93,25 @@ void clear_and_box_window(WINDOW* win) {
 //     return (max_y > 2 && max_x > 2);
 // }
 
-// void format_flight_id(char* buffer, size_t size, Aviao* aviao) {
-//     if (!buffer || !aviao || size < 5) return;
+void format_flight_id(char* buffer, size_t size, Aviao* aviao) {
+    if (!buffer || !aviao || size < 5) return;
     
-//     char tipo_char = (aviao->tipo == VOO_DOMESTICO) ? 'D' : 'I';
-//     snprintf(buffer, size, "%c%02d", tipo_char, aviao->id);
-// }
+    char tipo_char = (aviao->tipo == VOO_DOMESTICO) ? 'D' : 'I';
+    snprintf(buffer, size, "%c%02d", tipo_char, aviao->id);
+}
 
-// int get_flight_color_pair(Aviao* aviao) {
-//     if (!aviao) return PAIR_DEFAULT;
+void format_flight_id_dot(char* buffer, size_t size, Aviao* aviao) {
+    if (!buffer || !aviao || size < 7) return;
     
-//     return (aviao->tipo == VOO_DOMESTICO) ? PAIR_DOM : PAIR_INTL;
-// }
+    char tipo_char = (aviao->tipo == VOO_DOMESTICO) ? 'D' : 'I';
+    snprintf(buffer, size, "%c%02d · ", tipo_char, aviao->id);
+}
+
+int get_flight_color_pair(Aviao* aviao) {
+    if (!aviao) return PAIR_DEFAULT;
+    
+    return (aviao->tipo == VOO_DOMESTICO) ? PAIR_DOM : PAIR_INTL;
+}
 
 // void format_elapsed_time(char* buffer, size_t size, time_t inicio) {
 //     if (!buffer || size < 8) return;
@@ -94,52 +131,52 @@ void clear_and_box_window(WINDOW* win) {
 //              has_tower ? 'T' : '-');
 // }
 
-// bool is_flight_active(Aviao* aviao) {
-//     return aviao && 
-//            aviao->id > 0 && 
-//            aviao->estado != FINALIZADO_SUCESSO && 
-//            aviao->estado < FALHA_DEADLOCK;
-// }
+bool is_flight_active(Aviao* aviao) {
+    return aviao && 
+           aviao->id > 0 && 
+           aviao->estado != FINALIZADO_SUCESSO && 
+           aviao->estado < FALHA_DEADLOCK;
+}
 
-// bool is_flight_waiting_for_landing(Aviao* aviao) {
-//     return aviao && aviao->estado == AGUARDANDO_POUSO;
-// }
+bool is_flight_waiting_for_landing(Aviao* aviao) {
+    return aviao && aviao->estado == AGUARDANDO_POUSO;
+}
 
-// bool is_flight_in_alert(Aviao* aviao, int tempo_espera, int threshold) {
-//     if (!aviao) return false;
+bool is_flight_in_alert(Aviao* aviao, int tempo_espera, int threshold) {
+    if (!aviao) return false;
     
-//     return tempo_espera > threshold && 
-//            aviao->estado != DECOLANDO && 
-//            aviao->estado != DESEMBARCANDO && 
-//            aviao->estado != POUSANDO;
-// }
+    return tempo_espera > threshold && 
+           aviao->estado != DECOLANDO && 
+           aviao->estado != DESEMBARCANDO && 
+           aviao->estado != POUSANDO;
+}
 
-// bool flight_has_runway(SimulacaoAeroporto* sim, int aviao_id) {
-//     if (!sim || aviao_id <= 0) return false;
+bool flight_has_runway(SimulacaoAeroporto* sim, int aviao_id) {
+    if (!sim || aviao_id <= 0) return false;
     
-//     for (int i = 0; i < sim->recursos.total_pistas; i++) {
-//         if (sim->recursos.pista_ocupada_por[i] == aviao_id) {
-//             return true;
-//         }
-//     }
-//     return false;
-// }
+    for (int i = 0; i < sim->recursos.total_pistas; i++) {
+        if (sim->recursos.pista_ocupada_por[i] == aviao_id) {
+            return true;
+        }
+    }
+    return false;
+}
 
-// bool flight_has_gate(SimulacaoAeroporto* sim, int aviao_id) {
-//     if (!sim || aviao_id <= 0) return false;
+bool flight_has_gate(SimulacaoAeroporto* sim, int aviao_id) {
+    if (!sim || aviao_id <= 0) return false;
     
-//     for (int i = 0; i < sim->recursos.total_portoes; i++) {
-//         if (sim->recursos.portao_ocupado_por[i] == aviao_id) {
-//             return true;
-//         }
-//     }
-//     return false;
-// }
+    for (int i = 0; i < sim->recursos.total_portoes; i++) {
+        if (sim->recursos.portao_ocupado_por[i] == aviao_id) {
+            return true;
+        }
+    }
+    return false;
+}
 
-// bool flight_has_tower(Aviao* aviao) {
-//     if (!aviao) return false;
+bool flight_has_tower(Aviao* aviao) {
+    if (!aviao) return false;
     
-//     return (aviao->estado == POUSANDO || 
-//             aviao->estado == DESEMBARCANDO || 
-//             aviao->estado == DECOLANDO);
-// }
+    return (aviao->estado == POUSANDO || 
+            aviao->estado == DESEMBARCANDO || 
+            aviao->estado == DECOLANDO);
+}
