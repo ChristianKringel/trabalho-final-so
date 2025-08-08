@@ -24,12 +24,6 @@ static int get_waiting_airplanes(SimulacaoAeroporto* sim) {
     return count;
 }
 
-static void draw_window_title(WINDOW* win, const char* title) {
-    if (!win || !title) return;
-    box(win, 0, 0);
-    mvwprintw(win, 0, 2, "%s", title);
-}
-
 static void draw_airplane_id(WINDOW* win, int y, int x, Aviao* aviao) {
     if (!win || !aviao || aviao->id <= 0) return;
     int current_column = x;
