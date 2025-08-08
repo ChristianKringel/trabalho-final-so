@@ -20,9 +20,9 @@ void clear_and_box_window(WINDOW* win);
 
 int get_waiting_airplanes(SimulacaoAeroporto* sim);
 
-// bool validate_window_params(WINDOW* win, void* data);
-// bool validate_window_bounds(WINDOW* win, int linha, int coluna);
-// bool is_window_usable(WINDOW* win);
+bool validate_window_params(WINDOW* win, void* data);
+bool validate_window_bounds(WINDOW* win, int linha, int coluna);
+bool is_window_usable(WINDOW* win);
 
 void format_flight_id(char* buffer, size_t size, Aviao* aviao);
 void format_flight_id_dot(char* buffer, size_t size, Aviao* aviao);
