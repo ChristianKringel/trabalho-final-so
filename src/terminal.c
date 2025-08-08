@@ -1,6 +1,6 @@
 #include "terminal.h"
 
-static WINDOW *header_win, *airspace_win, *status_win, *fids_win, *log_win;
+static WINDOW *header_win, *airspace_win, *status_win, *queue_win, *log_win;
 
 #define MAX_LOG_BUFFER 256
 #define MAX_ID_STR 10
@@ -46,7 +46,7 @@ void close_terminal_ncurses() {
     if (header_win)     delwin(header_win);
     if (airspace_win)   delwin(airspace_win);
     if (status_win)     delwin(status_win);
-    if (fids_win)       delwin(fids_win);
+    if (queue_win)      delwin(queue_win);
     if (log_win)        delwin(log_win);
     endwin();
 }
@@ -55,7 +55,7 @@ static void init_windows(){
     header_win       = newwin(HEADER_HEIGHT, COLS, 0, 0);
     airspace_win     = newwin(AIRSPACE_HEIGHT, COLS, HEADER_HEIGHT, 0);
     status_win       = newwin(MAIN_HEIGHT, STATUS_WIDTH, HEADER_HEIGHT + AIRSPACE_HEIGHT, 0);
-    fids_win         = newwin(MAIN_HEIGHT, FIDS_WIDTH, HEADER_HEIGHT + AIRSPACE_HEIGHT, STATUS_WIDTH);
+    queue_win         = newwin(MAIN_HEIGHT, FIDS_WIDTH, HEADER_HEIGHT + AIRSPACE_HEIGHT, STATUS_WIDTH);
     log_win          = newwin(MAIN_HEIGHT, LOG_WIDTH, HEADER_HEIGHT + AIRSPACE_HEIGHT, STATUS_WIDTH + FIDS_WIDTH);
     scrollok(log_win, TRUE);
     wbkgd(log_win, COLOR_PAIR(PAIR_DEFAULT));
@@ -90,6 +90,7 @@ static void get_active_planes(SimulacaoAeroporto* sim, int* voos_ativos) {
         }
     }
 }
+
 void update_terminal_display(SimulacaoAeroporto* sim) {
     if (!sim) return;
 
@@ -99,7 +100,7 @@ void update_terminal_display(SimulacaoAeroporto* sim) {
     manage_header_panel(sim, voos_ativos, header_win);
     manage_queue_panel(sim, airspace_win);
     manage_status_panel(sim, status_win);
-    manage_info_panel(sim, fids_win);
+    manage_info_panel(sim, queue_win);
 
     doupdate();
 }
