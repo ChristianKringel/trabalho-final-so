@@ -13,31 +13,16 @@ static bool verify_space(WINDOW* win, int y, int x, const char* str) {
     return (y >= 0 && y < max_y && x >= 0 && x + strlen(str) < max_x);
 }
 
-static int get_waiting_airplanes(SimulacaoAeroporto* sim) {
-    if (!sim) return 0;
-    int count = 0;
-    for (int i = 0; i < sim->metricas.total_avioes_criados; i++) {
-        if (sim->avioes[i].id > 0 && sim->avioes[i].estado == AGUARDANDO_POUSO) {
-            count++;
-        }
-    }
-    return count;
-}
+
 
 static void draw_airplane_id(WINDOW* win, int y, int x, Aviao* aviao) {
     if (!win || !aviao || aviao->id <= 0) return;
-    int current_column = x;
-    int flight_color = (aviao->tipo == VOO_DOMESTICO) ? PAIR_DOM : PAIR_INTL;
-    int flight_type  = (aviao->tipo == VOO_DOMESTICO) ? 'D' : 'I';
-    int flight_id    = aviao->id;
-    char prefix[10];
-    snprintf(prefix, sizeof(prefix), "%c%02d · ", flight_type, flight_id);
 
-    if (!verify_space(win, y, current_column, prefix)) return;
+    char id[10];
+    format_flight_id_dot(id, sizeof(id), aviao);
+    if (!verify_space(win, y, x, id)) return;
     
-    wattron(win, COLOR_PAIR(flight_color) | A_BOLD);
-    mvwprintw(win, y, x, "%s", prefix);
-    wattroff(win, COLOR_PAIR(flight_color) | A_BOLD);
+    draw_window_text(win, y, x, id, get_flight_color_pair(aviao));
 }
 
 static int draw_airplane_queue(SimulacaoAeroporto* sim, WINDOW* win, int* col_atual) {
@@ -47,8 +32,7 @@ static int draw_airplane_queue(SimulacaoAeroporto* sim, WINDOW* win, int* col_at
     for (int i = 0; i < sim->metricas.total_avioes_criados; i++) {
         if (sim->avioes[i].id > 0 && sim->avioes[i].estado == AGUARDANDO_POUSO) {
             char id_str[10];
-            char tipo_char = sim->avioes[i].tipo == VOO_DOMESTICO ? 'D' : 'I';
-            snprintf(id_str, sizeof(id_str), "%c%02d · ", tipo_char, sim->avioes[i].id);
+            format_flight_id_dot(id_str, sizeof(id_str), &sim->avioes[i]);
 
             if (can_draw_on_queue(win, *col_atual, id_str)) {
                 draw_airplane_id(win, 1, *col_atual, &sim->avioes[i]);
@@ -63,9 +47,7 @@ static int draw_airplane_queue(SimulacaoAeroporto* sim, WINDOW* win, int* col_at
 static void draw_queue_indicators(WINDOW* win, int col_atual, int avioes_mostrados, int total_aguardando) {
     if (!win) return;
     
-    if (avioes_mostrados < total_aguardando) {
-        mvwprintw(win, 1, col_atual, "... ");
-    }
+    if (avioes_mostrados < total_aguardando) { mvwprintw(win, 1, col_atual, "... "); }
     mvwprintw(win, 0, 19, "(Total: %d)", total_aguardando);
 }
 
