@@ -54,7 +54,7 @@ static void draw_queue_indicators(WINDOW* win, int col_atual, int avioes_mostrad
 void manage_queue_panel(SimulacaoAeroporto* sim, WINDOW* queue_win) {
     if (!sim || !queue_win) return;
 
-    wclear(queue_win);
+    clear_and_box_window(queue_win);
     draw_window_title(queue_win, "[AIRSPACE QUEUE]");
     
     int col_atual = 2;
@@ -63,5 +63,5 @@ void manage_queue_panel(SimulacaoAeroporto* sim, WINDOW* queue_win) {
     
     draw_queue_indicators(queue_win, col_atual, avioes_mostrados, total_aguardando);
     
-    wrefresh(queue_win);
+    finalize_window_display(queue_win);
 }

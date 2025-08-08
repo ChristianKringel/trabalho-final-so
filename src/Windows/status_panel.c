@@ -31,6 +31,7 @@ static void draw_resource_line_free(WINDOW* win, int line, const char* prefix, i
     draw_window_text(win, line, 2, free_line, PAIR_SUCCESS);
 }
 
+//TA QUEBRADO, TEM QUE ADICIONAR TORRE_OCUPADO_POR[] NA ESTRUTURA DE RECURSOS AEROPORTO
 static int find_tower_using_airplane(SimulacaoAeroporto* sim) {
     if (!sim) return -1;
     

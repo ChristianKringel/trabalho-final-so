@@ -73,25 +73,26 @@ int get_waiting_airplanes(SimulacaoAeroporto* sim) {
     }
     return count;
 }
-// bool validate_window_params(WINDOW* win, void* data) {
-//     return win && data;
-// }
 
-// bool validate_window_bounds(WINDOW* win, int linha, int coluna) {
-//     if (!win) return false;
-    
-//     int max_y, max_x;
-//     getmaxyx(win, max_y, max_x);
-//     return (linha >= 0 && linha < max_y && coluna >= 0 && coluna < max_x);
-// }
+bool validate_window_params(WINDOW* win, void* data) {
+    return win && data;
+}
 
-// bool is_window_usable(WINDOW* win) {
-//     if (!win) return false;
+bool validate_window_bounds(WINDOW* win, int linha, int coluna) {
+    if (!win) return false;
     
-//     int max_y, max_x;
-//     getmaxyx(win, max_y, max_x);
-//     return (max_y > 2 && max_x > 2);
-// }
+    int max_y, max_x;
+    getmaxyx(win, max_y, max_x);
+    return (linha >= 0 && linha < max_y && coluna >= 0 && coluna < max_x);
+}
+
+bool is_window_usable(WINDOW* win) {
+    if (!win) return false;
+    
+    int max_y, max_x;
+    getmaxyx(win, max_y, max_x);
+    return (max_y > 2 && max_x > 2);
+}
 
 void format_flight_id(char* buffer, size_t size, Aviao* aviao) {
     if (!buffer || !aviao || size < 5) return;
@@ -113,23 +114,23 @@ int get_flight_color_pair(Aviao* aviao) {
     return (aviao->tipo == VOO_DOMESTICO) ? PAIR_DOM : PAIR_INTL;
 }
 
-// void format_elapsed_time(char* buffer, size_t size, time_t inicio) {
-//     if (!buffer || size < 8) return;
+void format_elapsed_time(char* buffer, size_t size, time_t inicio) {
+    if (!buffer || size < 8) return;
     
-//     int tempo_decorrido = (inicio > 0) ? difftime(time(NULL), inicio) : 0;
-//     int minutos = tempo_decorrido / 60;
-//     int segundos = tempo_decorrido % 60;
-//     snprintf(buffer, size, "[%02d:%02d]", minutos, segundos);
-// }
+    int tempo_decorrido = (inicio > 0) ? difftime(time(NULL), inicio) : 0;
+    int minutos = tempo_decorrido / 60;
+    int segundos = tempo_decorrido % 60;
+    snprintf(buffer, size, "[%02d:%02d]", minutos, segundos);
+}
 
-// void format_resource_status(char* buffer, size_t size, bool has_runway, bool has_gate, bool has_tower) {
-//     if (!buffer || size < 8) return;
+void format_resource_status(char* buffer, size_t size, bool has_runway, bool has_gate, bool has_tower) {
+    if (!buffer || size < 8) return;
     
-//     snprintf(buffer, size, "%c %c %c", 
-//              has_runway ? 'P' : '-', 
-//              has_gate ? 'G' : '-', 
-//              has_tower ? 'T' : '-');
-// }
+    snprintf(buffer, size, "%c %c %c", 
+             has_runway ? 'P' : '-', 
+             has_gate ? 'G' : '-', 
+             has_tower ? 'T' : '-');
+}
 
 bool is_flight_active(Aviao* aviao) {
     return aviao && 
