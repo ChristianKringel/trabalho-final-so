@@ -137,27 +137,9 @@ static void draw_fids_flights(WINDOW* win, SimulacaoAeroporto* sim) {
     }
 }
 
-static void draw_flight_info_tittle(WINDOW* win) {
-    if (!win) return;
-    wclear(win);
-    box(win, 0, 0);
-    mvwprintw(win, 0, 2, "[FLIGHT INFORMATION DISPLAY SYSTEM]");
-}
 
-static void draw_window_title(WINDOW* win, const char* title) {
-    if (!win || !title) return;
-    box(win, 0, 0);
-    mvwprintw(win, 0, 2, "%s", title);
-}
 
-static void draw_flight_info_headers(WINDOW* win) {
-    if (!win) return;
-    wattron(win, A_BOLD);
-    mvwhline(win, 1, 2, ACS_HLINE, getmaxx(win) - 4);
-    mvwprintw(win, 2, 2, " Voo | Estado             | Recursos | Espera");
-    wattroff(win, A_BOLD);
-    mvwhline(win, 3, 2, ACS_HLINE, getmaxx(win) - 4);
-}
+
 
 // static bool verify_space(WINDOW* win, int y, int x, const char* str) {
 //     if (!win || !str) return false;
@@ -179,7 +161,8 @@ void manage_info_panel(SimulacaoAeroporto* sim, WINDOW* info_win) {
     }
 
     draw_window_title(info_win, "[INFORMATION PANEL]");
-    draw_flight_info_headers(info_win);
+    draw_window_section_title_full(info_win, 1, " Voo | Estado             | Recursos | Espera", true);
+    draw_horizontal_separator(info_win, 3);
     draw_fids_flights(info_win, sim);
     finalize_fids_display(info_win);
 }
