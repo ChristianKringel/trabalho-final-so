@@ -3,6 +3,7 @@
 
 #include "libs.h"
 #include "utils.h"
+#include "window_utils.h"
 
 void manage_header_panel(SimulacaoAeroporto* sim, int voos_ativos, WINDOW* header_win);
 

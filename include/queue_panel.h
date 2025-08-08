@@ -3,6 +3,7 @@
 
 #include "libs.h"
 #include "utils.h"
+#include "window_utils.h"
 
 void manage_queue_panel(SimulacaoAeroporto* sim, WINDOW* airspace_win);
 

@@ -3,8 +3,8 @@
 
 #include "libs.h"
 #include "utils.h"
+#include "window_utils.h"
 
 void manage_status_panel(SimulacaoAeroporto* sim, WINDOW* status_win);
-
 
 #endif

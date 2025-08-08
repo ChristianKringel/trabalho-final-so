@@ -3,6 +3,7 @@
 
 #include "libs.h"
 #include "utils.h"
+#include "window_utils.h"
 
 #define FIDS_HEADER_LINES 4
 #define FLIGHT_ID_WIDTH 4
