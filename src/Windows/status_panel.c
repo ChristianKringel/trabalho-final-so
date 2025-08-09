@@ -31,21 +31,52 @@ static void draw_resource_line_free(WINDOW* win, int line, const char* prefix, i
     draw_window_text(win, line, 2, free_line, PAIR_SUCCESS);
 }
 
-//TA QUEBRADO, TEM QUE ADICIONAR TORRE_OCUPADO_POR[] NA ESTRUTURA DE RECURSOS AEROPORTO
-static int find_tower_using_airplane(SimulacaoAeroporto* sim) {
-    if (!sim) return -1;
+static void map_airplanes_to_towers(SimulacaoAeroporto* sim, int* avioes_usando_torres) {
+    if (!sim || !avioes_usando_torres) return;
     
-    for (int j = 0; j < sim->metricas.total_avioes_criados; j++) {
+    for (int i = 0; i < sim->recursos.total_torres; i++) {
+        avioes_usando_torres[i] = -1;
+    }
+    
+    int torre_index = 0;
+    for (int j = 0; j < sim->metricas.total_avioes_criados && torre_index < sim->recursos.total_torres; j++) {
         if (sim->avioes[j].id > 0 && sim->avioes[j].torre_alocada && 
             (sim->avioes[j].estado == POUSANDO || sim->avioes[j].estado == DESEMBARCANDO || sim->avioes[j].estado == DECOLANDO)) {
-            return sim->avioes[j].id;
+            avioes_usando_torres[torre_index] = sim->avioes[j].id;
+            torre_index++;
         }
     }
-    return -1;
+}
+
+static void draw_single_tower(WINDOW* win, int torre_index, int aviao_id, SimulacaoAeroporto* sim) {
+    if (!validate_window_params(win, sim)) return;
+    
+    int current_line = TOWER_LINE + 1 + torre_index;
+    
+    if (aviao_id != -1) {
+        draw_resource_line_occupied(win, current_line, "T", torre_index, &sim->avioes[aviao_id - 1]);
+    } else {
+        draw_resource_line_free(win, current_line, "T", torre_index);
+    }
+}
+
+static void draw_tower_section(SimulacaoAeroporto* sim, WINDOW* win) {
+    if (!validate_window_params(win, sim)) return;  // FUNÇÃO DO window_utils.c
+
+    draw_window_section_title(win, TOWER_SECTION_START, "TORRES");  // FUNÇÃO DO window_utils.c
+    
+    int avioes_usando_torres[sim->recursos.total_torres];
+    map_airplanes_to_towers(sim, avioes_usando_torres);
+    
+    for (int i = 0; i < sim->recursos.total_torres; i++) {
+        draw_single_tower(win, i, avioes_usando_torres[i], sim);
+    }
+
+    draw_horizontal_separator(win, TOWER_LINE + 1 + sim->recursos.total_torres);  // FUNÇÃO DO window_utils.c
 }
 
 static void draw_lane_section(SimulacaoAeroporto* sim, WINDOW* win) {
-    if (!sim || !win) return;
+    if (!validate_window_params(win, sim)) return;
 
     draw_window_section_title(win, LANE_SECTION_START, "[PISTAS]");
     
@@ -63,7 +94,7 @@ static void draw_lane_section(SimulacaoAeroporto* sim, WINDOW* win) {
 }
 
 static void draw_gate_section(SimulacaoAeroporto* sim, WINDOW* win) {
-    if (!sim || !win) return;
+    if (!validate_window_params(win, sim)) return;
 
     draw_window_section_title(win, GATE_SECTION_START, "PORTOES");
     
@@ -78,33 +109,6 @@ static void draw_gate_section(SimulacaoAeroporto* sim, WINDOW* win) {
         } 
     }
     draw_horizontal_separator(win, GATE_LINE + 1 + sim->recursos.total_portoes);
-}
-
-static void draw_tower_section(SimulacaoAeroporto* sim, WINDOW* win) {
-    if (!sim || !win) return;
-
-    draw_window_section_title(win, TOWER_SECTION_START, "TORRES");
-    
-    for (int i = 0; i < sim->recursos.total_torres; i++) {
-        int current_line = TOWER_LINE + 1 + i;
-        int aviao_usando_torre = find_tower_using_airplane(sim);
-        
-        if (aviao_usando_torre != -1) {
-            Aviao* aviao = &sim->avioes[aviao_usando_torre - 1];
-            char id[10];
-            format_flight_id(id, sizeof(id), aviao);
-            int color_pair = get_flight_color_pair(aviao);
-            
-            char full_line[50];
-            snprintf(full_line, sizeof(full_line), "T%d: [%s] %-14s", i, id, estado_para_str(aviao->estado));
-            
-            draw_window_text(win, current_line, 2, full_line, color_pair);
-        } else {
-            draw_resource_line_free(win, current_line, "T", i);
-        }
-    }
-
-    draw_horizontal_separator(win, TOWER_LINE + 1 + sim->recursos.total_torres);
 }
 
 static void draw_legend_section(WINDOW* win, int start_line) {
@@ -124,7 +128,7 @@ static void draw_legend_section(WINDOW* win, int start_line) {
 }
 
 void manage_status_panel(SimulacaoAeroporto* sim, WINDOW* status_win){
-    if (!sim || !status_win) return;
+    if (!validate_window_params(status_win, sim)) return;
 
     clear_and_box_window(status_win);
     draw_window_title(status_win, "[AIRPORT STATUS]");
