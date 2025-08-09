@@ -8,12 +8,23 @@ void dormir_operacao(int min_ms, int max_ms);
 void dormir_operacao_com_pausa(SimulacaoAeroporto* sim, int min_ms, int max_ms);
 int gerar_numero_aleatorio(int min, int max);
 
+// Funções de prioridade e monitoramento
+void* monitorar_avioes(void* arg);
+int calcular_prioridade_dinamica(Aviao* aviao, time_t tempo_atual);
+void verificar_avioes_em_espera(SimulacaoAeroporto* sim);
+
+// Funções de fila de prioridade
+void inicializar_fila_prioridade(FilaPrioridade* fila);
+void inserir_na_fila_prioridade(FilaPrioridade* fila, int aviao_id, int prioridade);
+int remover_da_fila_prioridade(FilaPrioridade* fila);
+int obter_proximo_da_fila_prioridade(FilaPrioridade* fila);
+void atualizar_prioridade_na_fila(FilaPrioridade* fila, int aviao_id, int nova_prioridade);
+void destruir_fila_prioridade(FilaPrioridade* fila);
 
 void* monitorar_starvation(void* arg);
 int verificar_starvation(Aviao* aviao, time_t tempo_atual);
 int detectar_deadlock(SimulacaoAeroporto* sim);
 void atualizar_estado_aviao(Aviao* aviao, EstadoAviao novo_estado);
-
 
 void finalizar_simulacao(SimulacaoAeroporto* sim);
 void destruir_recursos(RecursosAeroporto* recursos);

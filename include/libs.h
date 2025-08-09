@@ -41,6 +41,15 @@ typedef enum {
     
 } EstadoAviao;
 
+// Estrutura para fila de prioridade
+typedef struct {
+    int avioes_ids[MAX_AVIOES];
+    int prioridades[MAX_AVIOES];
+    int tamanho;
+    pthread_mutex_t mutex;
+    pthread_cond_t cond;
+} FilaPrioridade;
+
 // Estrutura para recursos do aeroporto
 typedef struct {
     pthread_mutex_t mutex_pistas;
@@ -48,17 +57,20 @@ typedef struct {
     int pistas_disponiveis;
     int total_pistas;
     int pista_ocupada_por[MAX_PISTAS];
+    FilaPrioridade fila_pistas;
 
     pthread_mutex_t mutex_portoes;
     pthread_cond_t cond_portoes;
     int portoes_disponiveis;
     int total_portoes;
     int portao_ocupado_por[MAX_PORTOES];
+    FilaPrioridade fila_portoes;
 
     pthread_mutex_t mutex_torres;
     pthread_cond_t cond_torres;
     int torres_disponiveis;
     int total_torres;
+    FilaPrioridade fila_torres;
 } RecursosAeroporto;
 
 // Estrutura para dados de um aviao
@@ -70,6 +82,10 @@ typedef struct {
     time_t tempo_inicio_espera;
     time_t tempo_fim_operacao;
     time_t chegada_na_fila;
+    time_t tempo_inicio_espera_ar;
+    int prioridade_dinamica;
+    bool em_alerta;
+    bool crash_iminente;
     pthread_t thread_id;
     int pista_alocada;
     int portao_alocado;
@@ -105,6 +121,7 @@ typedef struct s_simulacao_aeroporto {
     bool pausado;
     pthread_cond_t cond_pausado;
     pthread_mutex_t mutex_pausado;
+    pthread_t monitor_thread;
 } SimulacaoAeroporto;
 
 typedef struct {

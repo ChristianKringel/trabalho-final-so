@@ -25,7 +25,7 @@ int main(int argc, char *argv[]) {
     int num_pistas = MAX_PISTAS;
     int num_portoes = MAX_PORTOES;
     int num_torres = MAX_TORRES;
-    int tempo_total_sim = 60;
+    int tempo_total_sim = 240;
     int max_avioes = 30;
 
     bool pause_simulation = false; 
@@ -51,6 +51,7 @@ int main(int argc, char *argv[]) {
 
     pthread_create(&ui_thread_id, NULL, ui_thread_func, sim);
     pthread_create(&criador_avioes_thread_id, NULL, criador_avioes, sim);
+    pthread_create(&sim->monitor_thread, NULL, monitorar_avioes, sim);
 
     while(sim->ativa) {
         int ch = getch();
@@ -85,6 +86,7 @@ int main(int argc, char *argv[]) {
 
     pthread_join(criador_avioes_thread_id, NULL);
     pthread_join(ui_thread_id, NULL);
+    pthread_join(sim->monitor_thread, NULL);
     
 
     log_evento_ui(sim, NULL, LOG_SYSTEM, "Aguardando finalização de todos os voos...");
