@@ -102,7 +102,7 @@ int calcular_prioridade_dinamica(Aviao* aviao, time_t agora) {
     if (aviao == NULL) return 0;
     
     // Prioridades base mais equilibradas
-    int prioridade_base = (aviao->tipo == VOO_INTERNACIONAL) ? 20 : 10;
+    int prioridade_base = (aviao->tipo == VOO_INTERNACIONAL) ? 20 : 15;
     int tempo_espera = (int)difftime(agora, aviao->tempo_inicio_espera_ar);
     
     // Prioridade aumenta EXPONENCIALMENTE com o tempo de espera
