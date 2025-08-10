@@ -13,8 +13,6 @@
 
 static void init_colors();
 static void init_windows();
-//static void draw_status_panel(SimulacaoAeroporto* sim);
-//static void draw_fids_panel(SimulacaoAeroporto* sim, int voos_ativos);
 const char* estado_para_str(EstadoAviao estado);
 void init_terminal_ncurses();
 void close_terminal_ncurses();

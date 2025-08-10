@@ -13,7 +13,7 @@ int solicitar_pista(SimulacaoAeroporto* sim, int id_aviao, TipoVoo tipo) {
         pthread_cond_wait(&recursos->cond_pistas, &recursos->mutex_pistas);
     }
     
-    // PODE VIRAR FUNCAO
+
     if (!sim->ativa) {
         pthread_mutex_unlock(&recursos->mutex_pistas);
         return -1;
@@ -34,8 +34,7 @@ int solicitar_pista(SimulacaoAeroporto* sim, int id_aviao, TipoVoo tipo) {
                       "Pista %d alocada (%d/%d disponíveis)", 
                       pista_idx, recursos->pistas_disponiveis, recursos->total_pistas);
     } else {
-        log_evento_ui(sim, &sim->avioes[id_aviao-1], LOG_ERROR, 
-                      "ERRO: Falha na alocação de pista");
+        log_evento_ui(sim, &sim->avioes[id_aviao-1], LOG_ERROR, "ERRO: Falha na alocação de pista");
     }
     pthread_mutex_unlock(&recursos->mutex_pistas);
     return pista_idx;
@@ -50,11 +49,11 @@ void liberar_pista(SimulacaoAeroporto* sim, int id_aviao, int pista_idx) {
     }
     
     recursos->pista_ocupada_por[pista_idx] = -1;
-    //recursos->pistas_disponiveis++;
+
     if (recursos->pistas_disponiveis < recursos->total_pistas) {
         recursos->pistas_disponiveis++;
     }
-    //printf("Avião %d liberou uma pista. Pistas disponíveis: %d\n", id_aviao, recursos->pistas_disponiveis);
+
     log_evento_ui(sim, &sim->avioes[id_aviao-1], LOG_RESOURCE, 
                   "Pista %d liberada (%d/%d disponíveis)", 
                   pista_idx, recursos->pistas_disponiveis, recursos->total_pistas);
@@ -67,8 +66,7 @@ int solicitar_portao(SimulacaoAeroporto* sim, int id_aviao, TipoVoo tipo) {
     pthread_mutex_lock(&recursos->mutex_portoes);
 
     if (recursos->portoes_disponiveis <= 0) {
-        log_evento_ui(sim, &sim->avioes[id_aviao-1], LOG_WARNING, 
-                      "Aguardando portão - Fila de espera");
+        log_evento_ui(sim, &sim->avioes[id_aviao-1], LOG_WARNING, "Aguardando portão - Fila de espera");
     }
     
     while (recursos->portoes_disponiveis <= 0 && sim->ativa) {
@@ -90,12 +88,8 @@ int solicitar_portao(SimulacaoAeroporto* sim, int id_aviao, TipoVoo tipo) {
     }
     if (portao_idx != -1) {
         recursos->portoes_disponiveis--;
-        log_evento_ui(sim, &sim->avioes[id_aviao-1], LOG_RESOURCE, 
-                      "Portão %d alocado (%d/%d disponíveis)", 
-                      portao_idx, recursos->portoes_disponiveis, recursos->total_portoes);
+        log_evento_ui(sim, &sim->avioes[id_aviao-1], LOG_RESOURCE, "Portão %d alocado (%d/%d disponíveis)", portao_idx, recursos->portoes_disponiveis, recursos->total_portoes);
     }
-    //recursos->portoes_disponiveis--;
-    //printf("Avião %d do tipo %d solicitou um portão. Portões disponíveis: %d\n", id_aviao, tipo, recursos->portoes_disponiveis);
     
     pthread_mutex_unlock(&recursos->mutex_portoes);
     return portao_idx;
@@ -115,13 +109,9 @@ void liberar_portao(SimulacaoAeroporto* sim, int id_aviao, int portao_idx) {
         recursos->portoes_disponiveis++;
     }
 
-    log_evento_ui(sim, &sim->avioes[id_aviao-1], LOG_RESOURCE, 
-                  "Portão %d liberado (%d/%d disponíveis)", 
-                  portao_idx, recursos->portoes_disponiveis, recursos->total_portoes);
+    log_evento_ui(sim, &sim->avioes[id_aviao-1], LOG_RESOURCE, "Portão %d liberado (%d/%d disponíveis)", portao_idx, recursos->portoes_disponiveis, recursos->total_portoes);
 
-    //recursos->portoes_disponiveis++;
-    //printf("Avião %d liberou um portão. Portões disponíveis: %d\n", id_aviao, recursos->portoes_disponiveis);
-    
+
     pthread_cond_broadcast(&recursos->cond_portoes);
     pthread_mutex_unlock(&recursos->mutex_portoes);
 }
@@ -130,9 +120,8 @@ int solicitar_torre(SimulacaoAeroporto* sim, int id_aviao, TipoVoo tipo) {
     RecursosAeroporto* recursos = &sim->recursos;
     pthread_mutex_lock(&recursos->mutex_torres);
     
-    if (recursos->torres_disponiveis <= 0) {
-        log_evento_ui(sim, &sim->avioes[id_aviao-1], LOG_WARNING, 
-                      "Aguardando torre de controle - Fila de espera");
+    if (recursos->torres_disponiveis <= 0) { 
+        log_evento_ui(sim, &sim->avioes[id_aviao-1], LOG_WARNING, "Aguardando torre de controle - Fila de espera");
     }
 
     while (recursos->torres_disponiveis <= 0 && sim->ativa) {
@@ -170,17 +159,13 @@ void liberar_torre(SimulacaoAeroporto* sim, int id_aviao) {
     if (recursos->torres_disponiveis < recursos->total_torres) {
         recursos->torres_disponiveis++;
     }
-    log_evento_ui(sim, &sim->avioes[id_aviao-1], LOG_RESOURCE, 
-                  "Torre liberada (%d/%d disponíveis)", 
-                  recursos->torres_disponiveis, recursos->total_torres);
+    log_evento_ui(sim, &sim->avioes[id_aviao-1], LOG_RESOURCE, "Torre liberada (%d/%d disponíveis)", recursos->torres_disponiveis, recursos->total_torres);
     
-    // Acorda TODAS as threads esperando para reprocessar a fila
     pthread_cond_broadcast(&recursos->cond_torres);
     
-    // Se há aviões na fila esperando, força outro broadcast após um pequeno delay
     if (recursos->fila_torres.tamanho > 0) {
         pthread_mutex_unlock(&recursos->mutex_torres);
-        usleep(1000); // 1ms delay
+        usleep(1000);
         pthread_mutex_lock(&recursos->mutex_torres);
         pthread_cond_broadcast(&recursos->cond_torres);
     }
