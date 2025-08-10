@@ -14,6 +14,6 @@ void liberar_portao(SimulacaoAeroporto* sim, int id_aviao, int portao_idx);
 
 int solicitar_torre(SimulacaoAeroporto* sim, int id_aviao, TipoVoo tipo);
 int solicitar_torre_com_prioridade(SimulacaoAeroporto* sim, Aviao* aviao);
-void liberar_torre(SimulacaoAeroporto* sim, int id_aviao);
+void liberar_torre(SimulacaoAeroporto* sim, int id_aviao, int torre_idx);
 
 #endif
