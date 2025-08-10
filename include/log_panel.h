@@ -3,6 +3,7 @@
 
 #include "libs.h"
 #include "utils.h"
+#include "window_utils.h"
 
 #define LOG_TIMESTAMP_WIDTH 8
 #define LOG_PREFIX_WIDTH 6

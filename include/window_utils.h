@@ -27,8 +27,8 @@ bool is_window_usable(WINDOW* win);
 void format_flight_id(char* buffer, size_t size, Aviao* aviao);
 void format_flight_id_dot(char* buffer, size_t size, Aviao* aviao);
 int get_flight_color_pair(Aviao* aviao);
-// void format_elapsed_time(char* buffer, size_t size, time_t inicio);
-// void format_resource_status(char* buffer, size_t size, bool has_runway, bool has_gate, bool has_tower);
+void format_elapsed_time(char* buffer, size_t size, time_t inicio);
+void format_resource_status(char* buffer, size_t size, bool has_runway, bool has_gate, bool has_tower);
 
 bool is_flight_active(Aviao* aviao);
 bool is_flight_waiting_for_landing(Aviao* aviao);

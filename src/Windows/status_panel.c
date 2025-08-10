@@ -61,9 +61,9 @@ static void draw_single_tower(WINDOW* win, int torre_index, int aviao_id, Simula
 }
 
 static void draw_tower_section(SimulacaoAeroporto* sim, WINDOW* win) {
-    if (!validate_window_params(win, sim)) return;  // FUNÇÃO DO window_utils.c
+    if (!validate_window_params(win, sim)) return;
 
-    draw_window_section_title(win, TOWER_SECTION_START, "TORRES");  // FUNÇÃO DO window_utils.c
+    draw_window_section_title(win, TOWER_SECTION_START, "TORRES");
     
     int avioes_usando_torres[sim->recursos.total_torres];
     map_airplanes_to_towers(sim, avioes_usando_torres);
@@ -72,7 +72,7 @@ static void draw_tower_section(SimulacaoAeroporto* sim, WINDOW* win) {
         draw_single_tower(win, i, avioes_usando_torres[i], sim);
     }
 
-    draw_horizontal_separator(win, TOWER_LINE + 1 + sim->recursos.total_torres);  // FUNÇÃO DO window_utils.c
+    draw_horizontal_separator(win, TOWER_LINE + 1 + sim->recursos.total_torres); 
 }
 
 static void draw_lane_section(SimulacaoAeroporto* sim, WINDOW* win) {

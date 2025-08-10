@@ -37,10 +37,7 @@ static void format_flight_resources(char* recursos_str, size_t size, SimulacaoAe
     bool tem_portao = flight_has_gate(sim, aviao->id);
     bool tem_torre  = flight_has_tower(aviao);
     
-    snprintf(recursos_str, size, "%c %c %c", 
-             tem_pista ? 'P' : '-', 
-             tem_portao ? 'G' : '-', 
-             tem_torre ? 'T' : '-');
+    format_resource_status(recursos_str, size, tem_pista, tem_portao, tem_torre);
 }
 
 static FidsFlightInfo collect_flight_info(SimulacaoAeroporto* sim, Aviao* aviao) {
