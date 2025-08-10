@@ -41,7 +41,9 @@ static void map_airplanes_to_towers(SimulacaoAeroporto* sim, int* avioes_usando_
     int torre_index = 0;
     for (int j = 0; j < sim->metricas.total_avioes_criados && torre_index < sim->recursos.total_torres; j++) {
         if (sim->avioes[j].id > 0 && sim->avioes[j].torre_alocada && 
-            (sim->avioes[j].estado == POUSANDO || sim->avioes[j].estado == DESEMBARCANDO || sim->avioes[j].estado == DECOLANDO)) {
+            (sim->avioes[j].estado == AGUARDANDO_POUSO || sim->avioes[j].estado == POUSANDO || 
+             sim->avioes[j].estado == AGUARDANDO_DESEMBARQUE || sim->avioes[j].estado == DESEMBARCANDO || 
+             sim->avioes[j].estado == AGUARDANDO_DECOLAGEM || sim->avioes[j].estado == DECOLANDO)) {
             avioes_usando_torres[torre_index] = sim->avioes[j].id;
             torre_index++;
         }
