@@ -36,7 +36,7 @@ void inserir_na_fila_prioridade(FilaPrioridade* fila, int aviao_id, int priorida
     pthread_mutex_unlock(&fila->mutex);
 }
 
-int remover_da_fila_prioridade(FilaPrioridade* fila) {
+int remover_da_fila_prioridade(FilaPrioridade* fila, int aviao_id) {
     if (fila == NULL) return -1;
     
     pthread_mutex_lock(&fila->mutex);
@@ -46,10 +46,6 @@ int remover_da_fila_prioridade(FilaPrioridade* fila) {
         return -1;
     }
     
-    // Sempre pega o primeiro (maior prioridade)
-    int aviao_id = fila->avioes_ids[0];
-    
-    // Move todos os elementos uma posição para frente
     for (int i = 0; i < fila->tamanho - 1; i++) {
         fila->avioes_ids[i] = fila->avioes_ids[i + 1];
         fila->prioridades[i] = fila->prioridades[i + 1];
@@ -72,9 +68,7 @@ void destruir_fila_prioridade(FilaPrioridade* fila) {
 
 // =============== FUNÇÕES DE PRIORIDADE E MONITORAMENTO ===============
 int obter_proximo_da_fila_prioridade(FilaPrioridade* fila) {
-    if (fila->tamanho == 0) {
-        return -1;
-    }
+    if (!fila || fila->tamanho == 0) return -1;
     
     int maior_prioridade = 0;
     int posicao_escolhida = 0;
@@ -87,6 +81,48 @@ int obter_proximo_da_fila_prioridade(FilaPrioridade* fila) {
     }
     
     return fila->avioes_ids[posicao_escolhida];
+}
+
+bool eh_minha_vez_na_fila(FilaPrioridade* fila, int aviao_id) {
+    if (!fila || fila->tamanho == 0) {
+        return false;
+    }
+    
+    // Se só tem um avião na fila, é a vez dele
+    if (fila->tamanho == 1) {
+        return fila->avioes_ids[0] == aviao_id;
+    }
+    
+    // Encontra a posição do avião na fila
+    int minha_posicao = -1;
+    int minha_prioridade = 0;
+    
+    for (int i = 0; i < fila->tamanho; i++) {
+        if (fila->avioes_ids[i] == aviao_id) {
+            minha_posicao = i;
+            minha_prioridade = fila->prioridades[i];
+            break;
+        }
+    }
+    
+    if (minha_posicao == -1) return false; // Não está na fila
+    
+    // Verifica se há alguém com prioridade ESTRITAMENTE maior
+    for (int i = 0; i < fila->tamanho; i++) {
+        if (i != minha_posicao && fila->prioridades[i] > minha_prioridade) {
+            return false; // Alguém tem prioridade maior
+        }
+    }
+    
+    // Se chegou até aqui, ou tem a maior prioridade ou está empatado
+    // Em caso de empate, o primeiro da fila (menor índice) tem prioridade
+    for (int i = 0; i < minha_posicao; i++) {
+        if (fila->prioridades[i] >= minha_prioridade) {
+            return false; // Alguém antes dele tem prioridade igual ou maior
+        }
+    }
+    
+    return true;
 }
 
 void atualizar_prioridade_na_fila(FilaPrioridade* fila, int aviao_id, int nova_prioridade) {
@@ -103,36 +139,54 @@ int calcular_prioridade_dinamica(Aviao* aviao, time_t agora) {
     
     // Prioridades base mais equilibradas
     int prioridade_base = (aviao->tipo == VOO_INTERNACIONAL) ? 25 : 20;
-    int tempo_espera = (int)difftime(agora, aviao->tempo_inicio_espera_ar);
+    int tempo_espera = 0;
+    if (aviao->estado == AGUARDANDO_POUSO) {
+        tempo_espera = (int)difftime(agora, aviao->tempo_inicio_espera_ar);
+    } else if (aviao->estado == AGUARDANDO_DESEMBARQUE || aviao->estado == AGUARDANDO_DECOLAGEM) {
+        tempo_espera = (int)difftime(agora, aviao->chegada_na_fila);
+    }
     
-    // Prioridade aumenta EXPONENCIALMENTE com o tempo de espera
-    // Isso garante que aviões esperando há muito tempo sempre tenham prioridade
+    // AGING EXPONENCIAL - Prioridade aumenta drasticamente com o tempo
     int bonus_tempo = 0;
     if (tempo_espera >= 0) {
-        // Fórmula exponencial: tempo² / 10 + tempo * 5
-        // Isso cria uma curva onde aviões com mais tempo ganham prioridade rapidamente
-        bonus_tempo = (tempo_espera * tempo_espera) / 10 + tempo_espera * 5;
+        // Fórmula mais agressiva: tempo³ / 20 + tempo² / 5 + tempo * 8
+        // Isso cria uma curva muito íngreme para aviões esperando há muito tempo
+        bonus_tempo = (tempo_espera * tempo_espera * tempo_espera) / 20 + 
+                      (tempo_espera * tempo_espera) / 5 + 
+                      tempo_espera * 8;
     }
     
     // Bônus para aviões em situação crítica
     int bonus_emergencia = 0;
     if (aviao->crash_iminente) {
-        // PRIORIDADE EXTREMA - sempre será o primeiro da fila
-        bonus_emergencia = 10000;
+        // PRIORIDADE MÁXIMA - sempre será o primeiro da fila
+        bonus_emergencia = 50000;
     } else if (aviao->em_alerta) {
-        // Prioridade muito alta - quase sempre será priorizado
-        bonus_emergencia = 2000;
+        // Prioridade muito alta - baseada no tempo de alerta
+        if (aviao->estado == AGUARDANDO_POUSO) {
+            bonus_emergencia = 5000; // Pouso é crítico
+        } else {
+            bonus_emergencia = 3000; // Outras operações
+        }
     }
     
     // Bônus adicional baseado no tempo total esperando (não só no ar)
     int tempo_total_espera = (int)difftime(agora, aviao->tempo_criacao);
-    int bonus_persistencia = tempo_total_espera * 3; // 3 pontos por segundo de vida
+    int bonus_persistencia = tempo_total_espera * 6; // 3 pontos por segundo de vida
     
-    int prioridade_final = prioridade_base + bonus_tempo + bonus_emergencia + bonus_persistencia;
+    int bonus_domestico = 0;
+    if (aviao->tipo == VOO_DOMESTICO && tempo_espera > 15) {
+        // Voos domésticos ganham prioridade extra após 15 segundos
+        bonus_domestico = (tempo_espera - 15) * 4;
+    }
     
-    // Debug: log prioridades muito altas para monitoramento
-    if (bonus_emergencia > 0) {
-        // Não faz log aqui para evitar spam, mas a prioridade será visível nos logs de alocação
+    int prioridade_final = prioridade_base + bonus_tempo + bonus_emergencia + 
+                          bonus_persistencia + bonus_domestico;
+    
+    // Debug para prioridades extremas
+    if (prioridade_final > 1000 && !aviao->em_alerta) {
+        log_evento_ui(NULL, aviao, LOG_INFO, "🔥 Prioridade alta por aging: %d (tempo: %ds)", 
+                     prioridade_final, tempo_espera);
     }
     
     return prioridade_final;
