@@ -6,15 +6,16 @@ static void draw_alert_indicator(WINDOW* win, int linha) {
     draw_window_text_full(win, linha, ALERT_POSITION, ALERT_TEXT, true, PAIR_ALERT);
 }
 
-static void draw_flight_line(WINDOW* win, int linha, FidsFlightInfo* info, const char* estado) {
+static void draw_flight_line(WINDOW* win, int linha, FlightInfo* info, const char* estado) {
     if (!win || !info || !estado) return;
     
     char flight_line[100];
-    snprintf(flight_line, sizeof(flight_line), " %-*s| %-*s | %-*s | %*ds", 
+    snprintf(flight_line, sizeof(flight_line), " %-*s| %-*s | %-*s | %*ds | %*d", 
               FLIGHT_ID_WIDTH, info->id_str,
               STATE_WIDTH, estado,
               RESOURCES_WIDTH, info->recursos_str,
-              WAIT_TIME_WIDTH - 1, info->tempo_espera);
+              WAIT_TIME_WIDTH - 1, info->tempo_espera,
+              PRIORITY_WIDTH - 1, info->prioridade_dinamica);
     
     draw_window_text(win, linha, 2, flight_line, info->color_pair);
     
@@ -40,8 +41,8 @@ static void format_flight_resources(char* recursos_str, size_t size, SimulacaoAe
     format_resource_status(recursos_str, size, tem_pista, tem_portao, tem_torre);
 }
 
-static FidsFlightInfo collect_flight_info(SimulacaoAeroporto* sim, Aviao* aviao) {
-    FidsFlightInfo info = {0};
+static FlightInfo collect_flight_info(SimulacaoAeroporto* sim, Aviao* aviao) {
+    FlightInfo info = {0};
     
     if (!sim || !aviao) return info;
     
@@ -50,11 +51,12 @@ static FidsFlightInfo collect_flight_info(SimulacaoAeroporto* sim, Aviao* aviao)
     info.tempo_espera = calculate_wait_time(aviao);
     info.em_alerta = is_flight_in_alert(aviao, info.tempo_espera, ALERT_THRESHOLD);
     info.color_pair = get_flight_color_pair(aviao);
+    info.prioridade_dinamica = aviao->prioridade_dinamica;
     
     return info;
 }
 
-static void draw_fids_flights(WINDOW* win, SimulacaoAeroporto* sim) {
+static void draw_filghts_info(WINDOW* win, SimulacaoAeroporto* sim) {
     if (!win || !sim) return;
     
     int linha_atual = FIDS_HEADER_LINES;
@@ -64,7 +66,7 @@ static void draw_fids_flights(WINDOW* win, SimulacaoAeroporto* sim) {
         Aviao* aviao = &sim->avioes[i];
         
         if (is_flight_active(aviao)) {
-            FidsFlightInfo info = collect_flight_info(sim, aviao);
+            FlightInfo info = collect_flight_info(sim, aviao);
             draw_flight_line(win, linha_atual, &info, estado_para_str(aviao->estado));
             linha_atual++;
         }
@@ -87,11 +89,11 @@ static void draw_insufficient_size_message(WINDOW* win) {
     finalize_window_display(win);
 }
 
-static void draw_fids_header(WINDOW* win) {
+static void draw_info_header(WINDOW* win) {
     if (!win) return;
     
     draw_window_title(win, "[INFORMATION PANEL]");
-    draw_window_section_title_full(win, 1, " Voo | Estado             | Recursos | Espera", true);
+    draw_window_section_title_full(win, 1, " Voo | Estado             | Recursos | Espera | Prioridade", true);
     draw_horizontal_separator(win, 3);
 }
 
@@ -104,7 +106,7 @@ void manage_info_panel(SimulacaoAeroporto* sim, WINDOW* info_win) {
     }
 
     clear_and_box_window(info_win);
-    draw_fids_header(info_win);
-    draw_fids_flights(info_win, sim);
+    draw_info_header(info_win);
+    draw_filghts_info(info_win, sim);
     finalize_window_display(info_win);
 }
