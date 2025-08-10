@@ -70,7 +70,9 @@ typedef struct {
     pthread_cond_t cond_torres;
     int torres_disponiveis;
     int total_torres;
+    int torre_ocupada_por[MAX_TORRES];
     FilaPrioridade fila_torres;
+
 } RecursosAeroporto;
 
 // Estrutura para dados de um aviao
