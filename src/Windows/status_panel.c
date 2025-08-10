@@ -34,11 +34,13 @@ static void draw_resource_line_free(WINDOW* win, int line, const char* prefix, i
 static void map_airplanes_to_towers(SimulacaoAeroporto* sim, int* avioes_usando_torres) {
     if (!sim || !avioes_usando_torres) return;
     
+    // Inicializa array - máximo de operações simultâneas na torre
     for (int i = 0; i < sim->recursos.total_torres; i++) {
         avioes_usando_torres[i] = -1;
     }
     
     int torre_index = 0;
+    // Encontra aviões que estão usando a torre (máximo de total_torres operações simultâneas)
     for (int j = 0; j < sim->metricas.total_avioes_criados && torre_index < sim->recursos.total_torres; j++) {
         if (sim->avioes[j].id > 0 && sim->avioes[j].torre_alocada && 
             (sim->avioes[j].estado == AGUARDANDO_POUSO || sim->avioes[j].estado == POUSANDO || 
@@ -50,26 +52,27 @@ static void map_airplanes_to_towers(SimulacaoAeroporto* sim, int* avioes_usando_
     }
 }
 
-static void draw_single_tower(WINDOW* win, int torre_index, int aviao_id, SimulacaoAeroporto* sim) {
+static void draw_single_tower(WINDOW* win, int operacao_index, int aviao_id, SimulacaoAeroporto* sim) {
     if (!validate_window_params(win, sim)) return;
     
-    int current_line = TOWER_LINE + 1 + torre_index;
+    int current_line = TOWER_LINE + 1 + operacao_index;
     
     if (aviao_id != -1) {
-        draw_resource_line_occupied(win, current_line, "T", torre_index, &sim->avioes[aviao_id - 1]);
+        draw_resource_line_occupied(win, current_line, "T", operacao_index, &sim->avioes[aviao_id - 1]);
     } else {
-        draw_resource_line_free(win, current_line, "T", torre_index);
+        draw_resource_line_free(win, current_line, "T", operacao_index);
     }
 }
 
 static void draw_tower_section(SimulacaoAeroporto* sim, WINDOW* win) {
     if (!validate_window_params(win, sim)) return;
 
-    draw_window_section_title(win, TOWER_SECTION_START, "TORRES");
+    draw_window_section_title(win, TOWER_SECTION_START, "TORRE DE CONTROLE");
     
     int avioes_usando_torres[sim->recursos.total_torres];
     map_airplanes_to_towers(sim, avioes_usando_torres);
     
+    // Exibe cada operação simultânea da torre única
     for (int i = 0; i < sim->recursos.total_torres; i++) {
         draw_single_tower(win, i, avioes_usando_torres[i], sim);
     }

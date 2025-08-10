@@ -16,7 +16,7 @@
 
 #define MAX_PISTAS 3
 #define MAX_PORTOES 5
-#define MAX_TORRES 2
+#define MAX_TORRES 1
 #define MAX_AVIOES 200
 
 // Enum para tipos de voo
@@ -70,7 +70,6 @@ typedef struct {
     pthread_cond_t cond_torres;
     int torres_disponiveis;
     int total_torres;
-    int torre_ocupada_por[MAX_TORRES];
     FilaPrioridade fila_torres;
 
 } RecursosAeroporto;
