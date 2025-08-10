@@ -16,8 +16,9 @@ void verificar_avioes_em_espera(SimulacaoAeroporto* sim);
 // Funções de fila de prioridade
 void inicializar_fila_prioridade(FilaPrioridade* fila);
 void inserir_na_fila_prioridade(FilaPrioridade* fila, int aviao_id, int prioridade);
-int remover_da_fila_prioridade(FilaPrioridade* fila);
+int remover_da_fila_prioridade(FilaPrioridade* fila, int aviao_id);
 int obter_proximo_da_fila_prioridade(FilaPrioridade* fila);
+bool eh_minha_vez_na_fila(FilaPrioridade* fila, int aviao_id);
 void atualizar_prioridade_na_fila(FilaPrioridade* fila, int aviao_id, int nova_prioridade);
 void destruir_fila_prioridade(FilaPrioridade* fila);
 
