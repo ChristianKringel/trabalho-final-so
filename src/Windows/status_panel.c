@@ -35,20 +35,8 @@ static void map_airplanes_to_towers(SimulacaoAeroporto* sim, int* avioes_usando_
     if (!sim || !avioes_usando_torres) return;
     
     // Inicializa array - máximo de operações simultâneas na torre
-    for (int i = 0; i < sim->recursos.total_torres; i++) {
-        avioes_usando_torres[i] = -1;
-    }
-    
-    int torre_index = 0;
-    // Encontra aviões que estão usando a torre (máximo de total_torres operações simultâneas)
-    for (int j = 0; j < sim->metricas.total_avioes_criados && torre_index < sim->recursos.total_torres; j++) {
-        if (sim->avioes[j].id > 0 && sim->avioes[j].torre_alocada && 
-            (sim->avioes[j].estado == AGUARDANDO_POUSO || sim->avioes[j].estado == POUSANDO || 
-             sim->avioes[j].estado == AGUARDANDO_DESEMBARQUE || sim->avioes[j].estado == DESEMBARCANDO || 
-             sim->avioes[j].estado == AGUARDANDO_DECOLAGEM || sim->avioes[j].estado == DECOLANDO)) {
-            avioes_usando_torres[torre_index] = sim->avioes[j].id;
-            torre_index++;
-        }
+    for (int i = 0; i < 2; i++) {
+        avioes_usando_torres[i] = sim->recursos.avioes_usando_torre[i];
     }
 }
 

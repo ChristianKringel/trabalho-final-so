@@ -45,7 +45,10 @@ void inicializar_recursos(RecursosAeroporto* recursos, int pistas, int portoes, 
     inicializar_fila_prioridade(&recursos->fila_portoes);
 
     recursos->total_torres = torres;
-    recursos->torres_disponiveis = torres;
+    recursos->torres_disponiveis = torres * 2;
+    for (int i = 0; i < MAX_TORRES * 2; i++) {
+        recursos->avioes_usando_torre[i] = -1; 
+    }
     pthread_mutex_init(&recursos->mutex_torres, NULL);
     pthread_cond_init(&recursos->cond_torres, NULL);
     inicializar_fila_prioridade(&recursos->fila_torres);

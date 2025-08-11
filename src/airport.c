@@ -148,16 +148,39 @@ void liberar_torre(SimulacaoAeroporto* sim, int id_aviao) {
     RecursosAeroporto* recursos = &sim->recursos;
     pthread_mutex_lock(&recursos->mutex_torres);
     
-    if (id_aviao > 0 && id_aviao <= sim->max_avioes) {
-        sim->avioes[id_aviao - 1].torre_alocada = 0;
-    }
-
-    if (recursos->torres_disponiveis < recursos->total_torres) {
-        recursos->torres_disponiveis++;
-    }
-    log_evento_ui(sim, &sim->avioes[id_aviao-1], LOG_RESOURCE, "Torre liberada (%d/%d disponíveis)", recursos->torres_disponiveis, recursos->total_torres);
+    int vaga_liberada = -1;
     
-    pthread_cond_signal(&recursos->cond_torres);
+    // Encontra qual vaga da torre este avião estava usando
+    for (int i = 0; i < MAX_TORRES * 2; i++) {
+        if (recursos->avioes_usando_torre[i] == id_aviao) {
+            recursos->avioes_usando_torre[i] = -1; // Libera a vaga
+            vaga_liberada = i;
+            break;
+        }
+    }
+    
+    if (vaga_liberada != -1) {
+        // Atualiza o campo torre_alocada do avião
+        if (id_aviao > 0 && id_aviao <= sim->max_avioes) {
+            sim->avioes[id_aviao - 1].torre_alocada = -1;
+        }
+        
+        // Incrementa torres disponíveis apenas se realmente liberou uma vaga
+        if (recursos->torres_disponiveis < MAX_TORRES * 2) {
+            recursos->torres_disponiveis++;
+        }
+        
+        log_evento_ui(sim, &sim->avioes[id_aviao-1], LOG_RESOURCE, 
+                     "Torre liberada - Operação %d (%d/%d disponíveis)", 
+                     vaga_liberada, recursos->torres_disponiveis, MAX_TORRES * 2);
+        
+        pthread_cond_signal(&recursos->cond_torres);
+    } else {
+        // Log de erro se não encontrou o avião nas vagas da torre
+        log_evento_ui(sim, &sim->avioes[id_aviao-1], LOG_ERROR, 
+                     "AVISO: Tentativa de liberar torre mas avião %d não foi encontrado nas vagas", id_aviao);
+    }
+    
     pthread_mutex_unlock(&recursos->mutex_torres);
 }
 
@@ -318,17 +341,33 @@ int solicitar_torre_com_prioridade(SimulacaoAeroporto* sim, Aviao* aviao) {
         }
     }
     
-    // Se chegou até aqui, tem recurso disponível E é o próximo na fila
     if (recursos->torres_disponiveis > 0 && eh_minha_vez_na_fila(&recursos->fila_torres, aviao->id)) {
         remover_da_fila_prioridade(&recursos->fila_torres, aviao->id);
         
-        recursos->torres_disponiveis--;
-        aviao->torre_alocada = 1;
+        int vaga_encontrada = -1;
+        for (int i = 0; i < MAX_TORRES * 2; i++) {
+            if (recursos->avioes_usando_torre[i] == -1) {
+                recursos->avioes_usando_torre[i] = aviao->id;
+                vaga_encontrada = i;
+                break;
+            }
+        }
 
-        log_evento_ui(sim, aviao, LOG_RESOURCE, "Torre alocada (%d/%d disponíveis) [Prioridade: %d]", recursos->torres_disponiveis, recursos->total_torres, aviao->prioridade_dinamica);        
-        
-        pthread_mutex_unlock(&recursos->mutex_torres);
-        return 0; 
+        if (vaga_encontrada != -1) {
+            recursos->torres_disponiveis--;
+            aviao->torre_alocada = vaga_encontrada; // Armazena qual vaga da torre foi alocada
+            
+            log_evento_ui(sim, aviao, LOG_RESOURCE, "Torre alocada - Operação %d (%d/%d disponíveis) [Prioridade: %d]", 
+                         vaga_encontrada, recursos->torres_disponiveis, MAX_TORRES * 2, aviao->prioridade_dinamica);        
+            
+            pthread_mutex_unlock(&recursos->mutex_torres);
+            return vaga_encontrada; // Retorna a vaga alocada
+        } else {
+            // Não deveria acontecer se torres_disponiveis > 0, mas é uma proteção
+            log_evento_ui(sim, aviao, LOG_ERROR, "ERRO: Torres disponíveis mas nenhuma vaga livre encontrada");
+            pthread_mutex_unlock(&recursos->mutex_torres);
+            return -1;
+        }
     }
     
     pthread_mutex_unlock(&recursos->mutex_torres);

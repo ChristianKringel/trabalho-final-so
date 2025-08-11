@@ -70,6 +70,7 @@ typedef struct {
     pthread_cond_t cond_torres;
     int torres_disponiveis;
     int total_torres;
+    int avioes_usando_torre[MAX_TORRES * 2];
     FilaPrioridade fila_torres;
 
 } RecursosAeroporto;
