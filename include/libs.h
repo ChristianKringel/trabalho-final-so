@@ -17,6 +17,7 @@
 #define MAX_PISTAS 3
 #define MAX_PORTOES 5
 #define MAX_TORRES 1
+#define CAPACIDADE_TORRE 2  // Nova definição para capacidade simultânea
 #define MAX_AVIOES 200
 
 // Enum para tipos de voo
@@ -50,8 +51,9 @@ typedef struct {
     pthread_cond_t cond;
 } FilaPrioridade;
 
-// Estrutura para recursos do aeroporto
+// Estrutura para recursos do aeroporto - VERSÃO CORRIGIDA
 typedef struct {
+    // Pistas (recursos exclusivos)
     pthread_mutex_t mutex_pistas;
     pthread_cond_t cond_pistas;
     int pistas_disponiveis;
@@ -59,6 +61,7 @@ typedef struct {
     int pista_ocupada_por[MAX_PISTAS];
     FilaPrioridade fila_pistas;
 
+    // Portões (recursos exclusivos)
     pthread_mutex_t mutex_portoes;
     pthread_cond_t cond_portoes;
     int portoes_disponiveis;
@@ -66,10 +69,13 @@ typedef struct {
     int portao_ocupado_por[MAX_PORTOES];
     FilaPrioridade fila_portoes;
 
+    // Torres (recurso compartilhado com capacidade limitada)
     pthread_mutex_t mutex_torres;
     pthread_cond_t cond_torres;
-    int torres_disponiveis;
-    int total_torres;
+    int slots_torre_disponiveis;  // Capacidade atual disponível (máximo 2)
+    int capacidade_torre;         // Capacidade total (2)
+    int operacoes_ativas_torre;   // Contador de operações ativas
+    int torre_ocupada_por[CAPACIDADE_TORRE]; // IDs dos aviões usando a torre
     FilaPrioridade fila_torres;
 
 } RecursosAeroporto;

@@ -35,13 +35,13 @@ static void map_airplanes_to_towers(SimulacaoAeroporto* sim, int* avioes_usando_
     if (!sim || !avioes_usando_torres) return;
     
     // Inicializa array - máximo de operações simultâneas na torre
-    for (int i = 0; i < sim->recursos.total_torres; i++) {
+    for (int i = 0; i < CAPACIDADE_TORRE; i++) {
         avioes_usando_torres[i] = -1;
     }
     
     int torre_index = 0;
-    // Encontra aviões que estão usando a torre (máximo de total_torres operações simultâneas)
-    for (int j = 0; j < sim->metricas.total_avioes_criados && torre_index < sim->recursos.total_torres; j++) {
+    // Encontra aviões que estão usando a torre (máximo de CAPACIDADE_TORRE operações simultâneas)
+    for (int j = 0; j < sim->metricas.total_avioes_criados && torre_index < CAPACIDADE_TORRE; j++) {
         if (sim->avioes[j].id > 0 && sim->avioes[j].torre_alocada && 
             (sim->avioes[j].estado == AGUARDANDO_POUSO || sim->avioes[j].estado == POUSANDO || 
              sim->avioes[j].estado == AGUARDANDO_DESEMBARQUE || sim->avioes[j].estado == DESEMBARCANDO || 
@@ -69,15 +69,15 @@ static void draw_tower_section(SimulacaoAeroporto* sim, WINDOW* win) {
 
     draw_window_section_title(win, TOWER_SECTION_START, "TORRE DE CONTROLE");
     
-    int avioes_usando_torres[sim->recursos.total_torres];
+    int avioes_usando_torres[CAPACIDADE_TORRE];
     map_airplanes_to_towers(sim, avioes_usando_torres);
     
     // Exibe cada operação simultânea da torre única
-    for (int i = 0; i < sim->recursos.total_torres; i++) {
+    for (int i = 0; i < CAPACIDADE_TORRE; i++) {
         draw_single_tower(win, i, avioes_usando_torres[i], sim);
     }
 
-    draw_horizontal_separator(win, TOWER_LINE + 1 + sim->recursos.total_torres); 
+    draw_horizontal_separator(win, TOWER_LINE + 1 + CAPACIDADE_TORRE); 
 }
 
 static void draw_lane_section(SimulacaoAeroporto* sim, WINDOW* win) {

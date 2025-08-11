@@ -18,7 +18,7 @@ static int get_gate_status(SimulacaoAeroporto* sim) {
 
 static int get_tower_status(SimulacaoAeroporto* sim) {
     if (!sim) return 0;
-    return sim->recursos.total_torres - sim->recursos.torres_disponiveis;
+    return sim->recursos.operacoes_ativas_torre;
 }
 
 static void draw_header_content(SimulacaoAeroporto* sim, int voos_ativos, WINDOW* win) {
@@ -37,7 +37,7 @@ static void draw_header_content(SimulacaoAeroporto* sim, int voos_ativos, WINDOW
               voos_ativos, 
               pistas_ocupadas, sim->recursos.total_pistas, 
               portoes_ocupados, sim->recursos.total_portoes, 
-              torres_ocupadas, sim->recursos.total_torres);
+              torres_ocupadas, sim->recursos.capacidade_torre);
     
     mvwprintw(win, 0, COLS - 25, "[P] Pausar | [Q] Sair");
 }

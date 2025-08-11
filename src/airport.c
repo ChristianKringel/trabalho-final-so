@@ -118,11 +118,11 @@ int solicitar_torre(SimulacaoAeroporto* sim, int id_aviao, TipoVoo tipo) {
     RecursosAeroporto* recursos = &sim->recursos;
     pthread_mutex_lock(&recursos->mutex_torres);
     
-    if (recursos->torres_disponiveis <= 0) { 
+    if (recursos->slots_torre_disponiveis <= 0) { 
         log_evento_ui(sim, &sim->avioes[id_aviao-1], LOG_WARNING, "Aguardando torre de controle - Fila de espera");
     }
 
-    while (recursos->torres_disponiveis <= 0 && sim->ativa) {
+    while (recursos->slots_torre_disponiveis <= 0 && sim->ativa) {
         pthread_cond_wait(&recursos->cond_torres, &recursos->mutex_torres);
     }
     
@@ -131,14 +131,23 @@ int solicitar_torre(SimulacaoAeroporto* sim, int id_aviao, TipoVoo tipo) {
         return -1;
     }
     
-    recursos->torres_disponiveis--;
+    recursos->slots_torre_disponiveis--;
+    recursos->operacoes_ativas_torre++;
     
-    if (id_aviao > 0 && id_aviao <= sim->max_avioes) {
-        sim->avioes[id_aviao - 1].torre_alocada = 1;
+    // Encontra um slot livre para registrar o avião
+    for (int i = 0; i < CAPACIDADE_TORRE; i++) {
+        if (recursos->torre_ocupada_por[i] == -1) {
+            recursos->torre_ocupada_por[i] = id_aviao;
+            if (id_aviao > 0 && id_aviao <= sim->max_avioes) {
+                sim->avioes[id_aviao - 1].torre_alocada = i + 1;
+            }
+            break;
+        }
     }
+    
     log_evento_ui(sim, &sim->avioes[id_aviao-1], LOG_RESOURCE, 
-                  "Torre alocada (%d/%d disponíveis)", 
-                  recursos->torres_disponiveis, recursos->total_torres);
+                  "Torre alocada (%d/%d slots disponíveis)", 
+                  recursos->slots_torre_disponiveis, recursos->capacidade_torre);
     
     pthread_mutex_unlock(&recursos->mutex_torres);
     return 0;
@@ -148,14 +157,30 @@ void liberar_torre(SimulacaoAeroporto* sim, int id_aviao) {
     RecursosAeroporto* recursos = &sim->recursos;
     pthread_mutex_lock(&recursos->mutex_torres);
     
+    // Verifica se o avião realmente tem a torre alocada
     if (id_aviao > 0 && id_aviao <= sim->max_avioes) {
+        if (sim->avioes[id_aviao - 1].torre_alocada == 0) {
+            log_evento_ui(sim, &sim->avioes[id_aviao-1], LOG_WARNING, 
+                         "Tentativa de liberar torre não alocada");
+            pthread_mutex_unlock(&recursos->mutex_torres);
+            return;
+        }
+        
+        // Encontra e libera o slot específico do avião
+        int slot_liberado = sim->avioes[id_aviao - 1].torre_alocada - 1; // -1 pois foi +1 na alocação
+        if (slot_liberado >= 0 && slot_liberado < CAPACIDADE_TORRE) {
+            recursos->torre_ocupada_por[slot_liberado] = -1;
+        }
+        
         sim->avioes[id_aviao - 1].torre_alocada = 0;
     }
 
-    if (recursos->torres_disponiveis < recursos->total_torres) {
-        recursos->torres_disponiveis++;
-    }
-    log_evento_ui(sim, &sim->avioes[id_aviao-1], LOG_RESOURCE, "Torre liberada (%d/%d disponíveis)", recursos->torres_disponiveis, recursos->total_torres);
+    recursos->slots_torre_disponiveis++;
+    recursos->operacoes_ativas_torre--;
+    
+    log_evento_ui(sim, &sim->avioes[id_aviao-1], LOG_RESOURCE, 
+                 "Torre liberada (%d/%d slots disponíveis)", 
+                 recursos->slots_torre_disponiveis, recursos->capacidade_torre);
     
     pthread_cond_signal(&recursos->cond_torres);
     pthread_mutex_unlock(&recursos->mutex_torres);
@@ -302,7 +327,8 @@ int solicitar_torre_com_prioridade(SimulacaoAeroporto* sim, Aviao* aviao) {
         log_evento_ui(sim, aviao, LOG_WARNING, "Aguardando torre de controle - Fila de espera (prioridade: %d)", aviao->prioridade_dinamica);
     }
     
-    while ((recursos->torres_disponiveis <= 0 || !eh_minha_vez_na_fila(&recursos->fila_torres, aviao->id)) && sim->ativa) {
+    // Loop de espera - nova lógica para recurso compartilhado
+    while ((recursos->slots_torre_disponiveis <= 0 || !eh_minha_vez_na_fila(&recursos->fila_torres, aviao->id)) && sim->ativa) {
         // Atualiza prioridade dinâmica enquanto espera
         int nova_prioridade = calcular_prioridade_dinamica(aviao, time(NULL));
         if (nova_prioridade != aviao->prioridade_dinamica) {
@@ -313,19 +339,34 @@ int solicitar_torre_com_prioridade(SimulacaoAeroporto* sim, Aviao* aviao) {
         pthread_cond_wait(&recursos->cond_torres, &recursos->mutex_torres);
         
         if (!sim->ativa) {
+            remover_da_fila_prioridade(&recursos->fila_torres, aviao->id);
             pthread_mutex_unlock(&recursos->mutex_torres);
             return -1;
         }
     }
     
-    // Se chegou até aqui, tem recurso disponível E é o próximo na fila
-    if (recursos->torres_disponiveis > 0 && eh_minha_vez_na_fila(&recursos->fila_torres, aviao->id)) {
+    // Se chegou até aqui, tem slot disponível E é o próximo na fila
+    if (recursos->slots_torre_disponiveis > 0 && eh_minha_vez_na_fila(&recursos->fila_torres, aviao->id)) {
         remover_da_fila_prioridade(&recursos->fila_torres, aviao->id);
         
-        recursos->torres_disponiveis--;
-        aviao->torre_alocada = 1;
+        // Aloca um slot da torre
+        recursos->slots_torre_disponiveis--;
+        recursos->operacoes_ativas_torre++;
+        
+        // Encontra um slot livre para registrar o avião
+        int slot_alocado = -1;
+        for (int i = 0; i < CAPACIDADE_TORRE; i++) {
+            if (recursos->torre_ocupada_por[i] == -1) {
+                recursos->torre_ocupada_por[i] = aviao->id;
+                slot_alocado = i;
+                break;
+            }
+        }
+        
+        aviao->torre_alocada = slot_alocado + 1; // +1 para diferir de 0 (não alocado)
 
-        log_evento_ui(sim, aviao, LOG_RESOURCE, "Torre alocada (%d/%d disponíveis) [Prioridade: %d]", recursos->torres_disponiveis, recursos->total_torres, aviao->prioridade_dinamica);        
+        log_evento_ui(sim, aviao, LOG_RESOURCE, "Torre alocada - Slot %d (%d/%d slots disponíveis) [Prioridade: %d]", 
+                     slot_alocado, recursos->slots_torre_disponiveis, recursos->capacidade_torre, aviao->prioridade_dinamica);        
         
         pthread_mutex_unlock(&recursos->mutex_torres);
         return 0; 
@@ -333,4 +374,232 @@ int solicitar_torre_com_prioridade(SimulacaoAeroporto* sim, Aviao* aviao) {
     
     pthread_mutex_unlock(&recursos->mutex_torres);
     return -1;
+}
+
+// =============== FUNÇÕES AUXILIARES PARA USO DA TORRE ===============
+
+// Solicitar uso da torre (exemplo simples)
+int solicitar_uso_torre(SimulacaoAeroporto* sim, Aviao* aviao) {
+    RecursosAeroporto* recursos = &sim->recursos;
+    
+    pthread_mutex_lock(&recursos->mutex_torres);
+    while (recursos->slots_torre_disponiveis == 0) {
+        pthread_cond_wait(&recursos->cond_torres, &recursos->mutex_torres);
+    }
+    recursos->slots_torre_disponiveis--;
+    recursos->operacoes_ativas_torre++;
+    
+    // Encontra um slot livre
+    for (int i = 0; i < CAPACIDADE_TORRE; i++) {
+        if (recursos->torre_ocupada_por[i] == -1) {
+            recursos->torre_ocupada_por[i] = aviao->id;
+            aviao->torre_alocada = i + 1;
+            break;
+        }
+    }
+    
+    pthread_mutex_unlock(&recursos->mutex_torres);
+    return 0;
+}
+
+// Liberar uso da torre (exemplo simples)
+void liberar_uso_torre(SimulacaoAeroporto* sim, Aviao* aviao) {
+    RecursosAeroporto* recursos = &sim->recursos;
+    
+    pthread_mutex_lock(&recursos->mutex_torres);
+    
+    if (aviao->torre_alocada > 0) {
+        int slot = aviao->torre_alocada - 1;
+        recursos->torre_ocupada_por[slot] = -1;
+        aviao->torre_alocada = 0;
+    }
+    
+    recursos->slots_torre_disponiveis++;
+    recursos->operacoes_ativas_torre--;
+    pthread_cond_signal(&recursos->cond_torres);
+    pthread_mutex_unlock(&recursos->mutex_torres);
+}
+
+// =============== FUNÇÕES DE ALOCAÇÃO ATÔMICA (ANTI-DEADLOCK) ===============
+
+// Aloca TODOS os recursos necessários para pouso de uma vez (torre + pista)
+int alocar_recursos_pouso_atomico(SimulacaoAeroporto* sim, Aviao* aviao) {
+    RecursosAeroporto* recursos = &sim->recursos;
+    bool recursos_alocados = false;
+    
+    while (!recursos_alocados && sim->ativa) {
+        // Tenta pegar TODOS os mutexes em ordem fixa (evita deadlock circular)
+        pthread_mutex_lock(&recursos->mutex_torres);
+        pthread_mutex_lock(&recursos->mutex_pistas);
+        
+        // Verifica se TODOS os recursos estão disponíveis
+        bool torre_disponivel = recursos->slots_torre_disponiveis > 0;
+        bool pista_disponivel = recursos->pistas_disponiveis > 0;
+        
+        if (torre_disponivel && pista_disponivel) {
+            // Aloca torre
+            recursos->slots_torre_disponiveis--;
+            recursos->operacoes_ativas_torre++;
+            for (int i = 0; i < CAPACIDADE_TORRE; i++) {
+                if (recursos->torre_ocupada_por[i] == -1) {
+                    recursos->torre_ocupada_por[i] = aviao->id;
+                    aviao->torre_alocada = i + 1;
+                    break;
+                }
+            }
+            
+            // Aloca pista
+            recursos->pistas_disponiveis--;
+            for (int i = 0; i < MAX_PISTAS; i++) {
+                if (recursos->pista_ocupada_por[i] == -1) {
+                    recursos->pista_ocupada_por[i] = aviao->id;
+                    aviao->pista_alocada = i;
+                    break;
+                }
+            }
+            
+            recursos_alocados = true;
+            log_evento_ui(sim, aviao, LOG_RESOURCE, 
+                         "Recursos POUSO alocados atomicamente (Torre: slot %d, Pista: %d)", 
+                         aviao->torre_alocada - 1, aviao->pista_alocada);
+        }
+        
+        pthread_mutex_unlock(&recursos->mutex_pistas);
+        pthread_mutex_unlock(&recursos->mutex_torres);
+        
+        // Se não conseguiu alocar, espera um pouco antes de tentar novamente
+        if (!recursos_alocados) {
+            usleep(1000 + (rand() % 5000)); // 1-6ms de espera aleatória
+        }
+    }
+    
+    return recursos_alocados ? 0 : -1;
+}
+
+// Aloca TODOS os recursos necessários para desembarque (portão)
+int alocar_recursos_desembarque_atomico(SimulacaoAeroporto* sim, Aviao* aviao) {
+    RecursosAeroporto* recursos = &sim->recursos;
+    bool recursos_alocados = false;
+    
+    while (!recursos_alocados && sim->ativa) {
+        pthread_mutex_lock(&recursos->mutex_portoes);
+        
+        if (recursos->portoes_disponiveis > 0) {
+            // Aloca portão
+            recursos->portoes_disponiveis--;
+            for (int i = 0; i < MAX_PORTOES; i++) {
+                if (recursos->portao_ocupado_por[i] == -1) {
+                    recursos->portao_ocupado_por[i] = aviao->id;
+                    aviao->portao_alocado = i;
+                    break;
+                }
+            }
+            
+            recursos_alocados = true;
+            log_evento_ui(sim, aviao, LOG_RESOURCE, 
+                         "Recursos DESEMBARQUE alocados atomicamente (Portão: %d)", 
+                         aviao->portao_alocado);
+        }
+        
+        pthread_mutex_unlock(&recursos->mutex_portoes);
+        
+        if (!recursos_alocados) {
+            usleep(1000 + (rand() % 5000)); // 1-6ms de espera aleatória
+        }
+    }
+    
+    return recursos_alocados ? 0 : -1;
+}
+
+// Aloca TODOS os recursos necessários para decolagem (torre + pista)
+int alocar_recursos_decolagem_atomico(SimulacaoAeroporto* sim, Aviao* aviao) {
+    RecursosAeroporto* recursos = &sim->recursos;
+    bool recursos_alocados = false;
+    
+    while (!recursos_alocados && sim->ativa) {
+        // Ordem fixa de mutexes para evitar deadlock
+        pthread_mutex_lock(&recursos->mutex_torres);
+        pthread_mutex_lock(&recursos->mutex_pistas);
+        
+        bool torre_disponivel = recursos->slots_torre_disponiveis > 0;
+        bool pista_disponivel = recursos->pistas_disponiveis > 0;
+        
+        if (torre_disponivel && pista_disponivel) {
+            // Aloca torre
+            recursos->slots_torre_disponiveis--;
+            recursos->operacoes_ativas_torre++;
+            for (int i = 0; i < CAPACIDADE_TORRE; i++) {
+                if (recursos->torre_ocupada_por[i] == -1) {
+                    recursos->torre_ocupada_por[i] = aviao->id;
+                    aviao->torre_alocada = i + 1;
+                    break;
+                }
+            }
+            
+            // Aloca pista
+            recursos->pistas_disponiveis--;
+            for (int i = 0; i < MAX_PISTAS; i++) {
+                if (recursos->pista_ocupada_por[i] == -1) {
+                    recursos->pista_ocupada_por[i] = aviao->id;
+                    aviao->pista_alocada = i;
+                    break;
+                }
+            }
+            
+            recursos_alocados = true;
+            log_evento_ui(sim, aviao, LOG_RESOURCE, 
+                         "Recursos DECOLAGEM alocados atomicamente (Torre: slot %d, Pista: %d)", 
+                         aviao->torre_alocada - 1, aviao->pista_alocada);
+        }
+        
+        pthread_mutex_unlock(&recursos->mutex_pistas);
+        pthread_mutex_unlock(&recursos->mutex_torres);
+        
+        if (!recursos_alocados) {
+            usleep(1000 + (rand() % 5000)); // 1-6ms de espera aleatória
+        }
+    }
+    
+    return recursos_alocados ? 0 : -1;
+}
+
+// Libera TODOS os recursos de um avião
+void liberar_todos_recursos(SimulacaoAeroporto* sim, Aviao* aviao) {
+    RecursosAeroporto* recursos = &sim->recursos;
+    
+    // Libera torre se alocada
+    if (aviao->torre_alocada > 0) {
+        pthread_mutex_lock(&recursos->mutex_torres);
+        int slot = aviao->torre_alocada - 1;
+        if (slot >= 0 && slot < CAPACIDADE_TORRE) {
+            recursos->torre_ocupada_por[slot] = -1;
+        }
+        recursos->slots_torre_disponiveis++;
+        recursos->operacoes_ativas_torre--;
+        aviao->torre_alocada = 0;
+        pthread_cond_broadcast(&recursos->cond_torres);
+        pthread_mutex_unlock(&recursos->mutex_torres);
+    }
+    
+    // Libera pista se alocada
+    if (aviao->pista_alocada >= 0) {
+        pthread_mutex_lock(&recursos->mutex_pistas);
+        recursos->pista_ocupada_por[aviao->pista_alocada] = -1;
+        recursos->pistas_disponiveis++;
+        aviao->pista_alocada = -1;
+        pthread_cond_broadcast(&recursos->cond_pistas);
+        pthread_mutex_unlock(&recursos->mutex_pistas);
+    }
+    
+    // Libera portão se alocado
+    if (aviao->portao_alocado >= 0) {
+        pthread_mutex_lock(&recursos->mutex_portoes);
+        recursos->portao_ocupado_por[aviao->portao_alocado] = -1;
+        recursos->portoes_disponiveis++;
+        aviao->portao_alocado = -1;
+        pthread_cond_broadcast(&recursos->cond_portoes);
+        pthread_mutex_unlock(&recursos->mutex_portoes);
+    }
+    
+    log_evento_ui(sim, aviao, LOG_RESOURCE, "TODOS os recursos liberados");
 }

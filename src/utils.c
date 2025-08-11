@@ -94,7 +94,8 @@ bool eh_minha_vez_na_fila(FilaPrioridade* fila, int aviao_id) {
         return false;
     }
     
-    return fila->tamanho > 0 && fila->avioes_ids[0] == aviao_id;
+    // Verifica se é o primeiro da fila (maior prioridade)
+    return fila->avioes_ids[0] == aviao_id;
 
     // if (fila->tamanho == 1) {
     //     return fila->avioes_ids[0] == aviao_id;
@@ -134,12 +135,44 @@ bool eh_minha_vez_na_fila(FilaPrioridade* fila, int aviao_id) {
 }
 
 void atualizar_prioridade_na_fila(FilaPrioridade* fila, int aviao_id, int nova_prioridade) {
+    if (!fila || fila->tamanho == 0) return;
+    
+    pthread_mutex_lock(&fila->mutex);
+    
+    // Encontra o avião na fila
+    int pos_atual = -1;
     for (int i = 0; i < fila->tamanho; i++) {
         if (fila->avioes_ids[i] == aviao_id) {
-            fila->prioridades[i] = nova_prioridade;
-            return;
+            pos_atual = i;
+            break;
         }
     }
+    
+    if (pos_atual == -1) {
+        pthread_mutex_unlock(&fila->mutex);
+        return; // Avião não está na fila
+    }
+    
+    // Remove temporariamente o avião da posição atual
+    for (int i = pos_atual; i < fila->tamanho - 1; i++) {
+        fila->avioes_ids[i] = fila->avioes_ids[i + 1];
+        fila->prioridades[i] = fila->prioridades[i + 1];
+    }
+    fila->tamanho--;
+    
+    // Reinsere na posição correta com a nova prioridade
+    int nova_pos = fila->tamanho;
+    while (nova_pos > 0 && fila->prioridades[nova_pos - 1] <= nova_prioridade) {
+        fila->avioes_ids[nova_pos] = fila->avioes_ids[nova_pos - 1];
+        fila->prioridades[nova_pos] = fila->prioridades[nova_pos - 1];
+        nova_pos--;
+    }
+    
+    fila->avioes_ids[nova_pos] = aviao_id;
+    fila->prioridades[nova_pos] = nova_prioridade;
+    fila->tamanho++;
+    
+    pthread_mutex_unlock(&fila->mutex);
 }
 
 int calcular_prioridade_dinamica(Aviao* aviao, time_t agora) {
@@ -320,11 +353,11 @@ void verificar_recursos_orfaos(SimulacaoAeroporto* sim) {
     RecursosAeroporto* recursos = &sim->recursos;
     
     // Verifica torres órfãs com mais agressividade
-    if (recursos->torres_disponiveis > 0 && recursos->fila_torres.tamanho > 0) {
+    if (recursos->slots_torre_disponiveis > 0 && recursos->fila_torres.tamanho > 0) {
         pthread_mutex_lock(&recursos->mutex_torres);
-        if (recursos->torres_disponiveis > 0 && recursos->fila_torres.tamanho > 0) {
-            log_evento_ui(sim, NULL, LOG_WARNING, "Detectado torre órfã - forçando broadcast múltiplo (%d torres, %d na fila)", 
-                         recursos->torres_disponiveis, recursos->fila_torres.tamanho);
+        if (recursos->slots_torre_disponiveis > 0 && recursos->fila_torres.tamanho > 0) {
+            log_evento_ui(sim, NULL, LOG_WARNING, "Detectado torre órfã - forçando broadcast múltiplo (%d slots, %d na fila)", 
+                         recursos->slots_torre_disponiveis, recursos->fila_torres.tamanho);
             
             // Força múltiplos broadcasts para garantir que as threads acordem
             for (int i = 0; i < 3; i++) {
@@ -376,6 +409,11 @@ void* monitorar_avioes(void* arg) {
         // Verifica recursos órfãos a cada 3 ciclos (3 segundos) para evitar spam
         if (ciclo_contador % 3 == 0) {
             verificar_recursos_orfaos(sim);
+        }
+        
+        // Detecção de deadlock a cada 5 ciclos (5 segundos) 
+        if (ciclo_contador % 5 == 0) {
+            detectar_deadlock(sim);
         }
         
         // Monitoramento mais frequente para aviões em emergência
@@ -498,16 +536,100 @@ int detectar_deadlock(SimulacaoAeroporto* sim) {
 
     pthread_mutex_lock(&sim->mutex_simulacao);
     
+    // Contadores para análise de deadlock
+    int avioes_esperando_torre = 0;
+    int avioes_esperando_pista = 0; 
+    int avioes_esperando_portao = 0;
+    int total_avioes_ativos = 0;
+    
     for (int i = 0; i < sim->max_avioes; i++) {
         Aviao* aviao = &sim->avioes[i];
+        if (aviao->id <= 0 || aviao->estado == FINALIZADO_SUCESSO || 
+            aviao->estado == FALHA_STARVATION || aviao->estado == FALHA_DEADLOCK) {
+            continue;
+        }
+        
+        total_avioes_ativos++;
+        
+        // Conta aviões em espera por recursos
         if (aviao->estado == AGUARDANDO_POUSO || aviao->estado == AGUARDANDO_DECOLAGEM) {
+            // Verifica se está na fila de torres (com lock)
+            pthread_mutex_lock(&sim->recursos.fila_torres.mutex);
+            for (int j = 0; j < sim->recursos.fila_torres.tamanho; j++) {
+                if (sim->recursos.fila_torres.avioes_ids[j] == aviao->id) {
+                    avioes_esperando_torre++;
+                    break;
+                }
+            }
+            pthread_mutex_unlock(&sim->recursos.fila_torres.mutex);
+            
+            // Verifica se está na fila de pistas (com lock)
+            pthread_mutex_lock(&sim->recursos.fila_pistas.mutex);
+            for (int j = 0; j < sim->recursos.fila_pistas.tamanho; j++) {
+                if (sim->recursos.fila_pistas.avioes_ids[j] == aviao->id) {
+                    avioes_esperando_pista++;
+                    break;
+                }
+            }
+            pthread_mutex_unlock(&sim->recursos.fila_pistas.mutex);
+        }
+        
+        if (aviao->estado == AGUARDANDO_DESEMBARQUE || aviao->estado == AGUARDANDO_DECOLAGEM) {
+            // Verifica se está na fila de portões (com lock)
+            pthread_mutex_lock(&sim->recursos.fila_portoes.mutex);
+            for (int j = 0; j < sim->recursos.fila_portoes.tamanho; j++) {
+                if (sim->recursos.fila_portoes.avioes_ids[j] == aviao->id) {
+                    avioes_esperando_portao++;
+                    break;
+                }
+            }
+            pthread_mutex_unlock(&sim->recursos.fila_portoes.mutex);
+        }
+        
+        // Log de starvation sem marcar como falha - avião continua tentando
+        if (aviao->estado == AGUARDANDO_POUSO || aviao->estado == AGUARDANDO_DECOLAGEM || 
+            aviao->estado == AGUARDANDO_DESEMBARQUE) {
             if (verificar_starvation(aviao, time(NULL))) {
-                atualizar_estado_aviao(aviao, FALHA_STARVATION);
-                incrementar_aviao_starvation(&sim->metricas);
-                pthread_mutex_unlock(&sim->mutex_simulacao);
-                return 1; 
+                log_evento_ui(sim, aviao, LOG_WARNING, "Avião em starvation - continuará tentando alocar recursos");
+                // NÃO marca como falha - avião deve continuar tentando
             }
         }
+    }
+    
+    // Detecção de padrão de deadlock circular
+    // Se muitos aviões estão esperando por recursos e os recursos estão ocupados
+    bool possivel_deadlock = false;
+    
+    if (total_avioes_ativos > 3) { // Só considera deadlock com múltiplos aviões
+        // Deadlock com torres: muitos aviões esperando torre, mas torre disponível
+        if (avioes_esperando_torre > sim->recursos.capacidade_torre && 
+            sim->recursos.slots_torre_disponiveis == 0) {
+            possivel_deadlock = true;
+        }
+        
+        // Deadlock circular entre pistas e torres
+        if (avioes_esperando_pista > 1 && avioes_esperando_torre > 1 &&
+            sim->recursos.pistas_disponiveis == 0 && sim->recursos.slots_torre_disponiveis == 0) {
+            possivel_deadlock = true;
+        }
+        
+        // Deadlock com portões e torres
+        if (avioes_esperando_portao > sim->recursos.total_portoes && 
+            avioes_esperando_torre > 0 && sim->recursos.portoes_disponiveis == 0) {
+            possivel_deadlock = true;
+        }
+    }
+    
+    if (possivel_deadlock) {
+        log_evento_ui(sim, NULL, LOG_ERROR, "Possível DEADLOCK detectado - forçando broadcasts de emergência");
+        
+        // Força broadcasts múltiplos em todos os recursos
+        pthread_cond_broadcast(&sim->recursos.cond_torres);
+        pthread_cond_broadcast(&sim->recursos.cond_pistas);  
+        pthread_cond_broadcast(&sim->recursos.cond_portoes);
+        
+        pthread_mutex_unlock(&sim->mutex_simulacao);
+        return 1;
     }
 
     pthread_mutex_unlock(&sim->mutex_simulacao);
@@ -527,7 +649,7 @@ void imprimir_status_recursos(RecursosAeroporto* recursos) {
     // printf("Recursos do Aeroporto:\n");
     // printf("Pistas Disponíveis: %d/%d\n", recursos->pistas_disponiveis, recursos->total_pistas);
     // printf("Portões Disponíveis: %d/%d\n", recursos->portoes_disponiveis, recursos->total_portoes);
-    // printf("Torres Disponíveis: %d/%d\n", recursos->torres_disponiveis, recursos->total_torres);
+    // printf("Torres Disponíveis: slots %d/%d (operações ativas: %d)\n", recursos->slots_torre_disponiveis, recursos->capacidade_torre, recursos->operacoes_ativas_torre);
 }
 
 void gerar_relatorio_final(SimulacaoAeroporto* sim) {
