@@ -26,7 +26,7 @@ int main(int argc, char *argv[]) {
     int num_portoes = MAX_PORTOES;
     int num_torres = MAX_TORRES;
     int tempo_total_sim = 240;
-    int max_avioes = 15;
+    int max_avioes = MAX_AVIOES;
 
     bool pause_simulation = false; 
 

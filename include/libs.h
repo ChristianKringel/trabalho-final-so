@@ -17,7 +17,7 @@
 #define MAX_PISTAS 3
 #define MAX_PORTOES 5
 #define MAX_TORRES 1
-#define MAX_AVIOES 200
+#define MAX_AVIOES 15
 
 // Enum para tipos de voo
 typedef enum { VOO_DOMESTICO, VOO_INTERNACIONAL } TipoVoo;

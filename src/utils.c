@@ -330,7 +330,7 @@ void verificar_recursos_orfaos(SimulacaoAeroporto* sim) {
             for (int i = 0; i < 3; i++) {
                 pthread_cond_broadcast(&recursos->cond_torres);
                 pthread_mutex_unlock(&recursos->mutex_torres);
-                usleep(500); // 0.5ms entre broadcasts
+                usleep(500);
                 pthread_mutex_lock(&recursos->mutex_torres);
             }
         }
@@ -579,7 +579,6 @@ void dormir_operacao(int min_ms, int max_ms) {
     usleep(tempo * 1000); // Converte milissegundos para microssegundos
 }
 
-// New pause-aware sleep function
 void dormir_operacao_com_pausa(SimulacaoAeroporto* sim, int min_ms, int max_ms) {
     if (min_ms < 0 || max_ms < min_ms || !sim) {
         return; 
