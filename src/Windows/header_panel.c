@@ -1,5 +1,6 @@
 #include "../../include/header_panel.h"
 #include "../../include/terminal.h"
+#include "../../include/utils.h"
 
 static const char* get_status(SimulacaoAeroporto* sim) {
     if (!sim) return "ERRO";
@@ -32,7 +33,7 @@ static void draw_header_content(SimulacaoAeroporto* sim, int voos_ativos, WINDOW
     mvwprintw(win, 0, 1,
               "SIMULACAO TRAFEGO AEROPORTO: %-9s | Tempo: %03d/%ds | Voos: %-2d | Pistas: %d/%d | Portoes: %d/%d | Torres: %d/%d",
               status_sim,
-              (int)difftime(time(NULL), sim->tempo_inicio),
+              (int)calcular_tempo_efetivo_simulacao(sim),
               sim->tempo_simulacao, 
               voos_ativos, 
               pistas_ocupadas, sim->recursos.total_pistas, 

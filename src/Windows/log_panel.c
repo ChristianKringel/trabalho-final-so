@@ -1,5 +1,6 @@
 #include "../../include/log_panel.h"
 #include "../../include/terminal.h"
+#include "../../include/utils.h"
 
 static bool validate_log_params(SimulacaoAeroporto* sim, const char* formato) {
     return sim && formato;
@@ -102,7 +103,7 @@ static void format_log_timestamp(char* timestamp, size_t size, SimulacaoAeroport
     
     int tempo_decorrido = 0;
     if (sim && sim->tempo_inicio > 0) {
-        tempo_decorrido = (int)difftime(time(NULL), sim->tempo_inicio);
+        tempo_decorrido = (int)calcular_tempo_efetivo_simulacao(sim);
     }
     
     int minutos = tempo_decorrido / 60;

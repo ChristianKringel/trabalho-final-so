@@ -26,7 +26,7 @@ int main(int argc, char *argv[]) {
     int num_portoes = MAX_PORTOES;
     int num_torres = MAX_TORRES;
     int tempo_total_sim = 240;
-    int max_avioes = 15;
+    int max_avioes = 50;
 
     bool pause_simulation = false; 
 
@@ -66,15 +66,17 @@ int main(int argc, char *argv[]) {
             sim->pausado = !sim->pausado;
 
             if (sim->pausado) {
+                atualizar_tempo_pausa(sim, true);  // Inicia pausa
                 log_evento_ui(sim, NULL, LOG_SYSTEM, "simulacao PAUSADA. Pressione 'p' para retomar.");
             } else {
+                atualizar_tempo_pausa(sim, false); // Finaliza pausa
                 log_evento_ui(sim, NULL, LOG_SYSTEM, "simulacao RETOMADA.");
                 pthread_cond_broadcast(&sim->cond_pausado);
             }
             pthread_mutex_unlock(&sim->mutex_pausado);
         }
         
-        if (difftime(time(NULL), sim->tempo_inicio) >= tempo_total_sim) {
+        if (calcular_tempo_efetivo_simulacao(sim) >= tempo_total_sim) {
             log_evento_ui(sim, NULL, LOG_SYSTEM, "Tempo limite atingido - Finalizando simulacao");
             log_evento_ui(sim, NULL, LOG_SYSTEM, "=== SIMULACAO FINALIZADA ===");
             finalizar_simulacao(sim); 

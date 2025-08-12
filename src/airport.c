@@ -158,6 +158,7 @@ void liberar_torre(SimulacaoAeroporto* sim, int id_aviao) {
     pthread_mutex_lock(&recursos->mutex_torres);
     
     // Verifica se o avião realmente tem a torre alocada
+    // Tivemos problemas anteriormente sem a verificacao
     if (id_aviao > 0 && id_aviao <= sim->max_avioes) {
         if (sim->avioes[id_aviao - 1].torre_alocada == 0) {
             log_evento_ui(sim, &sim->avioes[id_aviao-1], LOG_WARNING, 
@@ -191,7 +192,7 @@ int solicitar_pista_com_prioridade(SimulacaoAeroporto* sim, Aviao* aviao) {
     RecursosAeroporto* recursos = &sim->recursos;
     
     time_t agora = time(NULL);
-    int prioridade = calcular_prioridade_dinamica(aviao, agora);
+    int prioridade = calcular_prioridade_dinamica(aviao, agora, sim);
     
     pthread_mutex_lock(&recursos->mutex_pistas);
 
@@ -209,7 +210,7 @@ int solicitar_pista_com_prioridade(SimulacaoAeroporto* sim, Aviao* aviao) {
     }
 
     while ((recursos->pistas_disponiveis <= 0 || !eh_minha_vez_na_fila(&recursos->fila_pistas, aviao->id)) && sim->ativa) {
-        int nova_prioridade = calcular_prioridade_dinamica(aviao, time(NULL));
+        int nova_prioridade = calcular_prioridade_dinamica(aviao, time(NULL), sim);
         if (nova_prioridade != aviao->prioridade_dinamica) {
             aviao->prioridade_dinamica = nova_prioridade;
             atualizar_prioridade_na_fila(&recursos->fila_pistas, aviao->id, nova_prioridade);
@@ -223,6 +224,7 @@ int solicitar_pista_com_prioridade(SimulacaoAeroporto* sim, Aviao* aviao) {
 
     }
 
+        // Checa se tem pista disponivel e se é a vez do avião na fila 
     if (recursos->pistas_disponiveis > 0 && eh_minha_vez_na_fila(&recursos->fila_pistas, aviao->id)) {
         
         remover_da_fila_prioridade(&recursos->fila_pistas, aviao->id);
@@ -248,7 +250,7 @@ int solicitar_portao_com_prioridade(SimulacaoAeroporto* sim, Aviao* aviao) {
     RecursosAeroporto* recursos = &sim->recursos;
     
     time_t agora = time(NULL);
-    aviao->prioridade_dinamica = calcular_prioridade_dinamica(aviao, agora);
+    aviao->prioridade_dinamica = calcular_prioridade_dinamica(aviao, agora, sim);
     
     pthread_mutex_lock(&recursos->mutex_portoes);
     
@@ -268,7 +270,7 @@ int solicitar_portao_com_prioridade(SimulacaoAeroporto* sim, Aviao* aviao) {
     
     // CONDIÇÃO FORTALECIDA: Verifica disponibilidade E se é o próximo na fila
     while ((recursos->portoes_disponiveis <= 0 || !eh_minha_vez_na_fila(&recursos->fila_portoes, aviao->id)) && sim->ativa) {
-        int nova_prioridade = calcular_prioridade_dinamica(aviao, time(NULL));
+        int nova_prioridade = calcular_prioridade_dinamica(aviao, time(NULL), sim);
         if (nova_prioridade != aviao->prioridade_dinamica) {
             aviao->prioridade_dinamica = nova_prioridade;
             atualizar_prioridade_na_fila(&recursos->fila_portoes, aviao->id, nova_prioridade);
@@ -309,7 +311,7 @@ int solicitar_torre_com_prioridade(SimulacaoAeroporto* sim, Aviao* aviao) {
     RecursosAeroporto* recursos = &sim->recursos;
     
     time_t agora = time(NULL);
-    aviao->prioridade_dinamica = calcular_prioridade_dinamica(aviao, agora);
+    aviao->prioridade_dinamica = calcular_prioridade_dinamica(aviao, agora, sim);
     
     pthread_mutex_lock(&recursos->mutex_torres);
     
@@ -327,10 +329,10 @@ int solicitar_torre_com_prioridade(SimulacaoAeroporto* sim, Aviao* aviao) {
         log_evento_ui(sim, aviao, LOG_WARNING, "Aguardando torre de controle - Fila de espera (prioridade: %d)", aviao->prioridade_dinamica);
     }
     
-    // Loop de espera - nova lógica para recurso compartilhado
+    // Loop de espera para recurso compartilhado
     while ((recursos->slots_torre_disponiveis <= 0 || !eh_minha_vez_na_fila(&recursos->fila_torres, aviao->id)) && sim->ativa) {
         // Atualiza prioridade dinâmica enquanto espera
-        int nova_prioridade = calcular_prioridade_dinamica(aviao, time(NULL));
+        int nova_prioridade = calcular_prioridade_dinamica(aviao, time(NULL), sim);
         if (nova_prioridade != aviao->prioridade_dinamica) {
             aviao->prioridade_dinamica = nova_prioridade;
             atualizar_prioridade_na_fila(&recursos->fila_torres, aviao->id, nova_prioridade);
@@ -378,7 +380,6 @@ int solicitar_torre_com_prioridade(SimulacaoAeroporto* sim, Aviao* aviao) {
 
 // =============== FUNÇÕES AUXILIARES PARA USO DA TORRE ===============
 
-// Solicitar uso da torre (exemplo simples)
 int solicitar_uso_torre(SimulacaoAeroporto* sim, Aviao* aviao) {
     RecursosAeroporto* recursos = &sim->recursos;
     
@@ -402,7 +403,6 @@ int solicitar_uso_torre(SimulacaoAeroporto* sim, Aviao* aviao) {
     return 0;
 }
 
-// Liberar uso da torre (exemplo simples)
 void liberar_uso_torre(SimulacaoAeroporto* sim, Aviao* aviao) {
     RecursosAeroporto* recursos = &sim->recursos;
     

@@ -83,6 +83,8 @@ SimulacaoAeroporto* inicializar_simulacao(int pistas, int portoes, int torres, i
     pthread_mutex_init(&sim->mutex_ui_log, NULL);
 
     sim->tempo_inicio = time(NULL);
+    sim->tempo_pausado_total = 0;
+    sim->inicio_pausa = 0;
 
     
     sim->pausado = false;

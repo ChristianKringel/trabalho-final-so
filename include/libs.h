@@ -124,6 +124,8 @@ typedef struct s_simulacao_aeroporto {
     pthread_mutex_t mutex_simulacao;
     pthread_mutex_t mutex_ui_log; 
     time_t tempo_inicio;
+    time_t tempo_pausado_total;    // Tempo total pausado em segundos
+    time_t inicio_pausa;           // Timestamp do início da pausa atual
     UIViewMode modo_ui;
     bool pausado;
     pthread_cond_t cond_pausado;

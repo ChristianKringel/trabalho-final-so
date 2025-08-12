@@ -175,16 +175,18 @@ void atualizar_prioridade_na_fila(FilaPrioridade* fila, int aviao_id, int nova_p
     pthread_mutex_unlock(&fila->mutex);
 }
 
-int calcular_prioridade_dinamica(Aviao* aviao, time_t agora) {
+int calcular_prioridade_dinamica(Aviao* aviao, time_t agora, SimulacaoAeroporto* sim) {
     if (aviao == NULL) return 0;
     
     // Prioridades base mais equilibradas
     int prioridade_base = (aviao->tipo == VOO_INTERNACIONAL) ? 25 : 20;
     int tempo_espera = 0;
     if (aviao->estado == AGUARDANDO_POUSO) {
-        tempo_espera = (int)difftime(agora, aviao->tempo_inicio_espera_ar);
+        tempo_espera = sim ? calcular_tempo_espera_efetivo(sim, aviao->tempo_inicio_espera_ar) 
+                          : (int)difftime(agora, aviao->tempo_inicio_espera_ar);
     } else if (aviao->estado == AGUARDANDO_DESEMBARQUE || aviao->estado == AGUARDANDO_DECOLAGEM) {
-        tempo_espera = (int)difftime(agora, aviao->chegada_na_fila);
+        tempo_espera = sim ? calcular_tempo_espera_efetivo(sim, aviao->chegada_na_fila)
+                          : (int)difftime(agora, aviao->chegada_na_fila);
     }
     
     // AGING EXPONENCIAL - Prioridade aumenta drasticamente com o tempo
@@ -259,6 +261,14 @@ void atualizar_prioridade_nas_filas(SimulacaoAeroporto* sim, Aviao* aviao) {
 void verificar_avioes_em_espera(SimulacaoAeroporto* sim) {
     if (sim == NULL) return;
     
+    // Não atualiza tempos durante pausa
+    pthread_mutex_lock(&sim->mutex_pausado);
+    if (sim->pausado) {
+        pthread_mutex_unlock(&sim->mutex_pausado);
+        return;
+    }
+    pthread_mutex_unlock(&sim->mutex_pausado);
+    
     time_t agora = time(NULL);
     
     pthread_mutex_lock(&sim->mutex_simulacao);
@@ -273,7 +283,7 @@ void verificar_avioes_em_espera(SimulacaoAeroporto* sim) {
         
         // AGING PARA AVIÕES AGUARDANDO POUSO
         if (aviao->estado == AGUARDANDO_POUSO) {
-            int tempo_espera = (int)difftime(agora, aviao->tempo_inicio_espera_ar);
+            int tempo_espera = calcular_tempo_espera_efetivo(sim, aviao->tempo_inicio_espera_ar);
             
             if (tempo_espera >= 90 && !aviao->crash_iminente) {
                 // Avião crashed após 90 segundos
@@ -296,7 +306,7 @@ void verificar_avioes_em_espera(SimulacaoAeroporto* sim) {
         
         // AGING PARA AVIÕES AGUARDANDO DESEMBARQUE
         if (aviao->estado == AGUARDANDO_DESEMBARQUE) {
-            int tempo_espera = (int)difftime(agora, aviao->chegada_na_fila);
+            int tempo_espera = calcular_tempo_espera_efetivo(sim, aviao->chegada_na_fila);
             
             if (tempo_espera >= 45 && !aviao->em_alerta) {
                 aviao->em_alerta = true;
@@ -310,7 +320,7 @@ void verificar_avioes_em_espera(SimulacaoAeroporto* sim) {
         
         // AGING PARA AVIÕES AGUARDANDO DECOLAGEM
         if (aviao->estado == AGUARDANDO_DECOLAGEM) {
-            int tempo_espera = (int)difftime(agora, aviao->tempo_inicio_espera);
+            int tempo_espera = calcular_tempo_espera_efetivo(sim, aviao->tempo_inicio_espera);
             
             if (tempo_espera >= 30 && !aviao->em_alerta) {
                 aviao->em_alerta = true;
@@ -330,7 +340,7 @@ void verificar_avioes_em_espera(SimulacaoAeroporto* sim) {
             
             // Atualiza prioridade dinâmica
             int prioridade_antiga = aviao->prioridade_dinamica;
-            aviao->prioridade_dinamica = calcular_prioridade_dinamica(aviao, agora);
+            aviao->prioridade_dinamica = calcular_prioridade_dinamica(aviao, agora, sim);
             
             // Atualiza prioridade nas filas correspondentes
             atualizar_prioridade_nas_filas(sim, aviao);
@@ -404,6 +414,15 @@ void* monitorar_avioes(void* arg) {
     int ciclo_contador = 0;
     
     while (sim->ativa) {
+        // Verifica se a simulação está pausada antes de executar monitoramento
+        pthread_mutex_lock(&sim->mutex_pausado);
+        while (sim->pausado && sim->ativa) {
+            pthread_cond_wait(&sim->cond_pausado, &sim->mutex_pausado);
+        }
+        pthread_mutex_unlock(&sim->mutex_pausado);
+        
+        if (!sim->ativa) break; // Se simulação foi finalizada durante pausa
+        
         verificar_avioes_em_espera(sim);
         
         // Verifica recursos órfãos a cada 3 ciclos (3 segundos) para evitar spam
@@ -756,4 +775,58 @@ const char* estado_para_str(EstadoAviao estado) {
         case FINALIZADO_SUCESSO:        return "Finalizado";
         default:                        return "Falha";
     }
+}
+
+// Calcula o tempo efetivo da simulação descontando pausas
+double calcular_tempo_efetivo_simulacao(SimulacaoAeroporto* sim) {
+    if (!sim) return 0.0;
+    
+    time_t agora = time(NULL);
+    double tempo_total = difftime(agora, sim->tempo_inicio);
+    double tempo_pausa_atual = 0.0;
+    
+    // Se estamos em pausa, inclui o tempo da pausa atual
+    if (sim->pausado && sim->inicio_pausa > 0) {
+        tempo_pausa_atual = difftime(agora, sim->inicio_pausa);
+    }
+    
+    return tempo_total - sim->tempo_pausado_total - tempo_pausa_atual;
+}
+
+// Atualiza o controle de tempo de pausa
+void atualizar_tempo_pausa(SimulacaoAeroporto* sim, bool iniciando_pausa) {
+    if (!sim) return;
+    
+    if (iniciando_pausa) {
+        sim->inicio_pausa = time(NULL);
+    } else {
+        // Finalizando pausa - acumula o tempo pausado
+        if (sim->inicio_pausa > 0) {
+            time_t agora = time(NULL);
+            sim->tempo_pausado_total += difftime(agora, sim->inicio_pausa);
+            sim->inicio_pausa = 0;
+        }
+    }
+}
+
+// Calcula o tempo efetivo de espera de um avião descontando pausas
+int calcular_tempo_espera_efetivo(SimulacaoAeroporto* sim, time_t inicio_espera) {
+    if (!sim || inicio_espera <= 0) return 0;
+    
+    time_t agora = time(NULL);
+    double tempo_total = difftime(agora, inicio_espera);
+    double tempo_pausa_descontar = 0.0;
+    
+    // Se estamos pausados agora e a pausa começou depois do início da espera
+    if (sim->pausado && sim->inicio_pausa > 0 && sim->inicio_pausa >= inicio_espera) {
+        tempo_pausa_descontar += difftime(agora, sim->inicio_pausa);
+    }
+    
+    // Desconta o tempo total já pausado (aproximação - considera que o avião estava presente durante todas as pausas anteriores)
+    if (sim->tempo_pausado_total > 0) {
+        tempo_pausa_descontar += sim->tempo_pausado_total;
+    }
+    
+    int tempo_efetivo = (int)(tempo_total - tempo_pausa_descontar);
+    return tempo_efetivo > 0 ? tempo_efetivo : 0;
 }

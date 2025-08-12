@@ -123,6 +123,15 @@ void format_elapsed_time(char* buffer, size_t size, time_t inicio) {
     snprintf(buffer, size, "[%02d:%02d]", minutos, segundos);
 }
 
+void format_elapsed_time_with_pause(char* buffer, size_t size, SimulacaoAeroporto* sim) {
+    if (!buffer || size < 8 || !sim) return;
+    
+    int tempo_decorrido = (int)calcular_tempo_efetivo_simulacao(sim);
+    int minutos = tempo_decorrido / 60;
+    int segundos = tempo_decorrido % 60;
+    snprintf(buffer, size, "[%02d:%02d]", minutos, segundos);
+}
+
 void format_resource_status(char* buffer, size_t size, bool has_runway, bool has_gate, bool has_tower) {
     if (!buffer || size < 8) return;
     
