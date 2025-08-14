@@ -72,7 +72,6 @@ static void draw_tower_section(SimulacaoAeroporto* sim, WINDOW* win) {
     int avioes_usando_torres[sim->recursos.capacidade_torre];
     map_airplanes_to_towers(sim, avioes_usando_torres);
     
-    // Exibe cada operação simultânea da torre única
     for (int i = 0; i < sim->recursos.capacidade_torre; i++) {
         draw_single_tower(win, i, avioes_usando_torres[i], sim);
     }

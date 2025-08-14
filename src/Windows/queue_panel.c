@@ -13,8 +13,6 @@ static bool verify_space(WINDOW* win, int y, int x, const char* str) {
     return (y >= 0 && y < max_y && x >= 0 && x + strlen(str) < max_x);
 }
 
-
-
 static void draw_airplane_id(WINDOW* win, int y, int x, Aviao* aviao) {
     if (!win || !aviao || aviao->id <= 0) return;
 

@@ -134,7 +134,6 @@ int solicitar_torre(SimulacaoAeroporto* sim, int id_aviao, TipoVoo tipo) {
     recursos->slots_torre_disponiveis--;
     recursos->operacoes_ativas_torre++;
     
-    // Encontra um slot livre para registrar o avião
     for (int i = 0; i < recursos->capacidade_torre; i++) {
         if (recursos->torre_ocupada_por[i] == -1) {
             recursos->torre_ocupada_por[i] = id_aviao;

@@ -378,9 +378,7 @@ void verificar_pausa_simulacao(SimulacaoAeroporto* sim) {
     pthread_mutex_unlock(&sim->mutex_pausado);
 }
 
-bool verificar_avioes_em_alerta(SimulacaoAeroporto* sim) {
-    if (sim == NULL) return;
-    
+bool verificar_avioes_em_alerta(SimulacaoAeroporto* sim) {    
     pthread_mutex_lock(&sim->mutex_simulacao);
     
     for (int i = 0; i < sim->metricas.total_avioes_criados && i < sim->max_avioes; i++) {
