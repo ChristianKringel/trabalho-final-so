@@ -44,4 +44,8 @@ void atualizar_estado_aviao(Aviao* aviao, EstadoAviao novo_estado);
 void verificar_pausa(SimulacaoAeroporto* sim);
 const char* estado_para_str(EstadoAviao estado);
 
+void verificar_pausa_simulacao(SimulacaoAeroporto* sim);
+void verificar_recursos_orfaos(SimulacaoAeroporto* sim);
+bool verificar_avioes_em_alerta(SimulacaoAeroporto* sim);
+
 #endif

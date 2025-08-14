@@ -367,7 +367,7 @@ void verificar_pausa_simulacao(SimulacaoAeroporto* sim) {
     pthread_mutex_unlock(&sim->mutex_pausado);
 }
 
-void verificar_avioes_em_alerta(SimulacaoAeroporto* sim) {
+bool verificar_avioes_em_alerta(SimulacaoAeroporto* sim) {
     if (sim == NULL) return;
     
     pthread_mutex_lock(&sim->mutex_simulacao);
@@ -375,20 +375,20 @@ void verificar_avioes_em_alerta(SimulacaoAeroporto* sim) {
     for (int i = 0; i < sim->metricas.total_avioes_criados && i < sim->max_avioes; i++) {
         Aviao* aviao = &sim->avioes[i];
         
-        if (aviao->id <= 0 || !aviao->em_alerta || aviao->estado != AGUARDANDO_POUSO) {
-            continue;
+        if (aviao->id > 0 && aviao->em_alerta && aviao->estado == AGUARDANDO_POUSO) {
+            pthread_mutex_unlock(&sim->mutex_simulacao);
+            return true;
         }
-        
-        pthread_cond_broadcast(&sim->recursos.cond_torres);
-        pthread_cond_broadcast(&sim->recursos.cond_pistas);
-        pthread_cond_broadcast(&sim->recursos.cond_portoes);
-        
-        log_evento_ui(sim, aviao, LOG_WARNING, "ALERTA! Avião %d em alerta - forçando broadcasts", aviao->id);
-        
-        usleep(100000);
-    }
-    
+    }   
     pthread_mutex_unlock(&sim->mutex_simulacao);
+    return false;
+}
+
+void tratar_aviao_em_alerta(SimulacaoAeroporto* sim, Aviao* aviao) {
+    pthread_cond_broadcast(&sim->recursos.cond_torres);
+    pthread_cond_broadcast(&sim->recursos.cond_pistas);
+    pthread_cond_broadcast(&sim->recursos.cond_portoes);
+    usleep(100000); 
 }
 
 void* monitorar_avioes(void* arg) {
@@ -397,7 +397,7 @@ void* monitorar_avioes(void* arg) {
     
     while (sim->ativa) {
         
-        verifica_pausa_simulacao(sim);
+        verificar_pausa_simulacao(sim);
 
         if (!sim->ativa) break;
         
@@ -411,7 +411,12 @@ void* monitorar_avioes(void* arg) {
             detectar_deadlock(sim);
         }
 
-        verificar_avioes_em_alerta(sim);
+        bool critico = verificar_avioes_em_alerta(sim);
+        if (critico) {
+            tratar_aviao_em_alerta(sim, NULL);
+        } else {
+            sleep(1); 
+        }
         
         ciclo_contador++;
     }
