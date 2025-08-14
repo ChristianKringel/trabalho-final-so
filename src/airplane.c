@@ -38,7 +38,6 @@ int pouso_internacional(Aviao* aviao, SimulacaoAeroporto* sim) {
     
     aviao->pista_alocada = solicitar_pista_com_prioridade(sim, aviao);
     if (aviao->pista_alocada == -1) { 
-        //liberar_torre(sim, aviao->id);
         log_evento_ui(sim, aviao, LOG_ERROR, "ERRO: Pista não foi alocada corretamente");
         return 0; 
     }
@@ -68,7 +67,6 @@ int pouso_internacional(Aviao* aviao, SimulacaoAeroporto* sim) {
 int pouso_domestico(Aviao* aviao, SimulacaoAeroporto* sim) {
     log_evento_ui(sim, aviao, LOG_INFO, "Iniciando procedimento de pouso doméstico");
     
-    // Verifica se o avião já crashed
     if (aviao->crash_iminente) {
         log_evento_ui(sim, aviao, LOG_ERROR, "ABORTOU: Avião já havia crashed");
         return 0;
@@ -468,7 +466,7 @@ int desembarque_internacional_atomico(Aviao* aviao, SimulacaoAeroporto* sim) {
     if (aviao->torre_alocada > 0) {
         pthread_mutex_lock(&sim->recursos.mutex_torres);
         int slot = aviao->torre_alocada - 1;
-        if (slot >= 0 && slot < CAPACIDADE_TORRE) {
+        if (slot >= 0 && slot < sim->recursos.capacidade_torre) {
             sim->recursos.torre_ocupada_por[slot] = -1;
         }
         sim->recursos.slots_torre_disponiveis++;
@@ -502,7 +500,7 @@ int desembarque_domestico_atomico(Aviao* aviao, SimulacaoAeroporto* sim) {
     if (aviao->torre_alocada > 0) {
         pthread_mutex_lock(&sim->recursos.mutex_torres);
         int slot = aviao->torre_alocada - 1;
-        if (slot >= 0 && slot < CAPACIDADE_TORRE) {
+        if (slot >= 0 && slot < sim->recursos.capacidade_torre) {
             sim->recursos.torre_ocupada_por[slot] = -1;
         }
         sim->recursos.slots_torre_disponiveis++;
