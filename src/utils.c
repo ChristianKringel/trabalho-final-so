@@ -307,7 +307,6 @@ void verificar_avioes_em_espera(SimulacaoAeroporto* sim) {
     pthread_mutex_unlock(&sim->mutex_simulacao);
 }
 
-// Função para verificar e resolver recursos órfãos
 void verificar_recursos_orfaos(SimulacaoAeroporto* sim) {
     if (sim == NULL) return;
     
@@ -360,53 +359,59 @@ void verificar_recursos_orfaos(SimulacaoAeroporto* sim) {
     }
 }
 
+void verificar_pausa_simulacao(SimulacaoAeroporto* sim) {    
+    pthread_mutex_lock(&sim->mutex_pausado);
+    while (sim->pausado && sim->ativa) {
+        pthread_cond_wait(&sim->cond_pausado, &sim->mutex_pausado);
+    }
+    pthread_mutex_unlock(&sim->mutex_pausado);
+}
+
+void verificar_avioes_em_alerta(SimulacaoAeroporto* sim) {
+    if (sim == NULL) return;
+    
+    pthread_mutex_lock(&sim->mutex_simulacao);
+    
+    for (int i = 0; i < sim->metricas.total_avioes_criados && i < sim->max_avioes; i++) {
+        Aviao* aviao = &sim->avioes[i];
+        
+        if (aviao->id <= 0 || !aviao->em_alerta || aviao->estado != AGUARDANDO_POUSO) {
+            continue;
+        }
+        
+        pthread_cond_broadcast(&sim->recursos.cond_torres);
+        pthread_cond_broadcast(&sim->recursos.cond_pistas);
+        pthread_cond_broadcast(&sim->recursos.cond_portoes);
+        
+        log_evento_ui(sim, aviao, LOG_WARNING, "ALERTA! Avião %d em alerta - forçando broadcasts", aviao->id);
+        
+        usleep(100000);
+    }
+    
+    pthread_mutex_unlock(&sim->mutex_simulacao);
+}
+
 void* monitorar_avioes(void* arg) {
     SimulacaoAeroporto* sim = (SimulacaoAeroporto*)arg;
     int ciclo_contador = 0;
     
     while (sim->ativa) {
-        // Verifica se a simulação está pausada antes de executar monitoramento
-        pthread_mutex_lock(&sim->mutex_pausado);
-        while (sim->pausado && sim->ativa) {
-            pthread_cond_wait(&sim->cond_pausado, &sim->mutex_pausado);
-        }
-        pthread_mutex_unlock(&sim->mutex_pausado);
         
-        if (!sim->ativa) break; // Se simulação foi finalizada durante pausa
+        verifica_pausa_simulacao(sim);
+
+        if (!sim->ativa) break;
         
         verificar_avioes_em_espera(sim);
         
-        // Verifica recursos órfãos a cada 3 ciclos (3 segundos) para evitar spam
         if (ciclo_contador % 3 == 0) {
             verificar_recursos_orfaos(sim);
         }
         
-        // Detecção de deadlock a cada 5 ciclos (5 segundos) 
         if (ciclo_contador % 5 == 0) {
             detectar_deadlock(sim);
         }
-        
-        // Monitoramento mais frequente para aviões em emergência
-        // Força broadcasts adicionais para aviões em alerta
-        bool tem_avioes_criticos = false;
-        pthread_mutex_lock(&sim->mutex_simulacao);
-        for (int i = 0; i < sim->metricas.total_avioes_criados && i < sim->max_avioes; i++) {
-            Aviao* aviao = &sim->avioes[i];
-            if (aviao->id > 0 && aviao->em_alerta && aviao->estado == AGUARDANDO_POUSO) {
-                tem_avioes_criticos = true;
-                break;
-            }
-        }
-        pthread_mutex_unlock(&sim->mutex_simulacao);
-        
-        // Se há aviões críticos, força broadcasts extras para acelerar processamento
-        if (tem_avioes_criticos) {
-            pthread_cond_broadcast(&sim->recursos.cond_torres);
-            pthread_cond_broadcast(&sim->recursos.cond_pistas);
-            usleep(100000); // 0.1 segundo entre verificações quando há emergência
-        } else {
-            sleep(1); // 1 segundo normal
-        }
+
+        verificar_avioes_em_alerta(sim);
         
         ciclo_contador++;
     }
