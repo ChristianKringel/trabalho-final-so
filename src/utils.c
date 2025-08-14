@@ -75,63 +75,14 @@ void destruir_fila_prioridade(FilaPrioridade* fila) {
 // =============== FUNÇÕES DE PRIORIDADE E MONITORAMENTO ===============
 int obter_proximo_da_fila_prioridade(FilaPrioridade* fila) {
     if (!fila || fila->tamanho == 0) return -1;
+
     return fila->tamanho > 0 ? fila->avioes_ids[0] : -1;
-    // int maior_prioridade = 0;
-    // int posicao_escolhida = 0;
-    
-    // for (int i = 0; i < fila->tamanho; i++) {
-    //     if (fila->prioridades[i] > maior_prioridade) {
-    //         maior_prioridade = fila->prioridades[i];
-    //         posicao_escolhida = i;
-    //     }
-    // }
-    
-    // return fila->avioes_ids[posicao_escolhida];
 }
 
 bool eh_minha_vez_na_fila(FilaPrioridade* fila, int aviao_id) {
-    if (!fila || fila->tamanho == 0) {
-        return false;
-    }
+    if (!fila || fila->tamanho == 0) { return false; }
     
-    // Verifica se é o primeiro da fila (maior prioridade)
-    return fila->avioes_ids[0] == aviao_id;
-
-    // if (fila->tamanho == 1) {
-    //     return fila->avioes_ids[0] == aviao_id;
-    // }
-    
-    
-    // int minha_posicao = -1;
-    // int minha_prioridade = 0;
-    
-    // for (int i = 0; i < fila->tamanho; i++) {
-    //     if (fila->avioes_ids[i] == aviao_id) {
-    //         minha_posicao = i;
-    //         minha_prioridade = fila->prioridades[i];
-    //         break;
-    //     }
-    // }
-    
-    // if (minha_posicao == -1) return false; // Não está na fila
-    
-    // // Verifica se há alguém com prioridade ESTRITAMENTE maior
-    // for (int i = 0; i < fila->tamanho; i++) {
-    //     if (i != minha_posicao && fila->prioridades[i] > minha_prioridade) {
-    //         return false; // Alguém tem prioridade maior
-    //     }
-    // }
-    
-    // // Se chegou até aqui, ou tem a maior prioridade ou está empatado
-    // // Em caso de empate, o primeiro da fila (menor índice) tem prioridade
-    // for (int i = 0; i < minha_posicao; i++) {
-    //     if (fila->prioridades[i] >= minha_prioridade) {
-    //         return false; // Alguém antes dele tem prioridade igual ou maior
-    //     }
-    // }
-    
-    // return true;
-    
+    return fila->avioes_ids[0] == aviao_id; 
 }
 
 void atualizar_prioridade_na_fila(FilaPrioridade* fila, int aviao_id, int nova_prioridade) {
