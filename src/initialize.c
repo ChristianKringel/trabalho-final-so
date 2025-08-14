@@ -1,8 +1,7 @@
 #include "initialize.h"
 #include "utils.h"
 
-void inicializar_metricas(MetricasSimulacao* metricas)
-{
+void inicializar_metricas(MetricasSimulacao* metricas){
     if (metricas == NULL) {
         return; 
     }
@@ -20,8 +19,7 @@ void inicializar_metricas(MetricasSimulacao* metricas)
     pthread_mutex_init(&metricas->mutex_metricas, NULL);
 }
 
-void inicializar_pistas(RecursosAeroporto* recursos, int pistas)
-{
+void inicializar_pistas(RecursosAeroporto* recursos, int pistas){
     recursos->total_pistas = pistas;
     recursos->pistas_disponiveis = pistas;
 
@@ -34,8 +32,7 @@ void inicializar_pistas(RecursosAeroporto* recursos, int pistas)
     inicializar_fila_prioridade(&recursos->fila_pistas);
 }
 
-void inicializar_portoes(RecursosAeroporto* recursos, int portoes)
-{
+void inicializar_portoes(RecursosAeroporto* recursos, int portoes){
     recursos->total_portoes = portoes;
     recursos->portoes_disponiveis = portoes;
 
@@ -48,8 +45,7 @@ void inicializar_portoes(RecursosAeroporto* recursos, int portoes)
     inicializar_fila_prioridade(&recursos->fila_portoes);
 }
 
-void inicializar_torre(RecursosAeroporto* recursos, int capacidade)
-{
+void inicializar_torre(RecursosAeroporto* recursos, int capacidade){
     recursos->capacidade_torre = capacidade;
     recursos->slots_torre_disponiveis = capacidade;
     recursos->operacoes_ativas_torre = 0;
@@ -62,9 +58,7 @@ void inicializar_torre(RecursosAeroporto* recursos, int capacidade)
     inicializar_fila_prioridade(&recursos->fila_torres);
 }
 
-
-void inicializar_recursos(RecursosAeroporto* recursos, int pistas, int portoes, int torres)
-{
+void inicializar_recursos(RecursosAeroporto* recursos, int pistas, int portoes, int torres){
     if (recursos == NULL) {
         return; 
     }
@@ -74,8 +68,7 @@ void inicializar_recursos(RecursosAeroporto* recursos, int pistas, int portoes, 
     inicializar_torre(recursos, torres);
 }
 
-SimulacaoAeroporto* inicializar_simulacao(int pistas, int portoes, int torres, int tempo_simulacao, int max_avioes)
-{
+SimulacaoAeroporto* inicializar_simulacao(int pistas, int portoes, int torres, int tempo_simulacao, int max_avioes){
     SimulacaoAeroporto* sim = (SimulacaoAeroporto*)malloc(sizeof(SimulacaoAeroporto));
     if (sim == NULL) {
         return NULL; 
