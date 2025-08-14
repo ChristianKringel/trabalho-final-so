@@ -81,7 +81,6 @@ void inserir_na_nova_posicao(FilaPrioridade* fila, int nova_pos, int aviao_id, i
     fila->tamanho++;
 }
     
-
 void destruir_fila_prioridade(FilaPrioridade* fila) {
     if (fila == NULL) return;
     
@@ -132,6 +131,26 @@ void atualizar_prioridade_na_fila(FilaPrioridade* fila, int aviao_id, int nova_p
     inserir_na_nova_posicao(fila, nova_pos, aviao_id, nova_prioridade);
     
     pthread_mutex_unlock(&fila->mutex);
+}
+
+void atualizar_prioridade_nas_filas(SimulacaoAeroporto* sim, Aviao* aviao) {
+    if (!sim || !aviao) return;
+    
+    RecursosAeroporto* recursos = &sim->recursos;
+    
+    if (aviao->estado == AGUARDANDO_POUSO || aviao->estado == AGUARDANDO_DECOLAGEM) {
+        atualizar_prioridade_na_fila(&recursos->fila_pistas, aviao->id, aviao->prioridade_dinamica);
+    }
+    
+    if (aviao->estado == AGUARDANDO_DESEMBARQUE || aviao->estado == AGUARDANDO_DECOLAGEM) {
+        atualizar_prioridade_na_fila(&recursos->fila_portoes, aviao->id, aviao->prioridade_dinamica);
+    }
+    
+    if (aviao->estado == AGUARDANDO_POUSO || 
+        aviao->estado == AGUARDANDO_DESEMBARQUE || 
+        aviao->estado == AGUARDANDO_DECOLAGEM) {
+        atualizar_prioridade_na_fila(&recursos->fila_torres, aviao->id, aviao->prioridade_dinamica);
+    }
 }
 
 int calcular_prioridade_dinamica(Aviao* aviao, time_t agora, SimulacaoAeroporto* sim) {
@@ -194,33 +213,87 @@ int calcular_prioridade_dinamica(Aviao* aviao, time_t agora, SimulacaoAeroporto*
     return prioridade_final;
 }
 
-void atualizar_prioridade_nas_filas(SimulacaoAeroporto* sim, Aviao* aviao) {
-    if (!sim || !aviao) return;
-    
-    RecursosAeroporto* recursos = &sim->recursos;
-    
-    // Atualiza prioridade na fila de pistas (para pouso e decolagem)
-    if (aviao->estado == AGUARDANDO_POUSO || aviao->estado == AGUARDANDO_DECOLAGEM) {
-        atualizar_prioridade_na_fila(&recursos->fila_pistas, aviao->id, aviao->prioridade_dinamica);
-    }
-    
-    // Atualiza prioridade na fila de portões (para desembarque e decolagem)
-    if (aviao->estado == AGUARDANDO_DESEMBARQUE || aviao->estado == AGUARDANDO_DECOLAGEM) {
-        atualizar_prioridade_na_fila(&recursos->fila_portoes, aviao->id, aviao->prioridade_dinamica);
-    }
-    
-    // Atualiza prioridade na fila de torres (para todas as operações)
-    if (aviao->estado == AGUARDANDO_POUSO || 
-        aviao->estado == AGUARDANDO_DESEMBARQUE || 
-        aviao->estado == AGUARDANDO_DECOLAGEM) {
-        atualizar_prioridade_na_fila(&recursos->fila_torres, aviao->id, aviao->prioridade_dinamica);
+bool aviao_deve_ser_ignorado(Aviao* aviao) {
+    return aviao->id <= 0 || aviao->estado == FINALIZADO_SUCESSO || aviao->estado == FALHA_STARVATION || aviao->estado == FALHA_DEADLOCK;
+}
+
+// =============== FUNÇÕES DE AGING ===============
+void processar_aging_pouso(SimulacaoAeroporto* sim, Aviao* aviao, int tempo_espera) {
+    if (tempo_espera >= 90 && !aviao->crash_iminente) {
+        aviao->crash_iminente = true;
+        log_evento_ui(sim, aviao, LOG_ERROR, "CRASH! Avião %d caiu após 90s de espera no ar", aviao->id);
+        atualizar_estado_aviao(aviao, FALHA_STARVATION);
+        incrementar_aviao_falha_starvation(&sim->metricas);
+        
+    } else if (tempo_espera >= 60 && !aviao->em_alerta) {
+        aviao->em_alerta = true;
+        log_evento_ui(sim, aviao, LOG_WARNING, "ALERTA CRÍTICO! Avião %d há %ds no ar - PRIORIDADE EXTREMA!", aviao->id, tempo_espera);
+        pthread_cond_broadcast(&sim->recursos.cond_torres);
+        pthread_cond_broadcast(&sim->recursos.cond_pistas);
+        pthread_cond_broadcast(&sim->recursos.cond_portoes);
     }
 }
 
+void processar_aging_desembarque(SimulacaoAeroporto* sim, Aviao* aviao, int tempo_espera) {
+    if (tempo_espera >= 45 && !aviao->em_alerta) {
+        aviao->em_alerta = true;
+        log_evento_ui(sim, aviao, LOG_WARNING, "ALERTA! Avião %d aguardando desembarque há %ds", aviao->id, tempo_espera);
+        
+        pthread_cond_broadcast(&sim->recursos.cond_torres);
+        pthread_cond_broadcast(&sim->recursos.cond_portoes);
+    }
+}
+
+void processar_aging_decolagem(SimulacaoAeroporto* sim, Aviao* aviao, int tempo_espera) {
+    if (tempo_espera >= 30 && !aviao->em_alerta) {
+        aviao->em_alerta = true;
+        log_evento_ui(sim, aviao, LOG_WARNING, "ALERTA! Avião %d aguardando decolagem há %ds", aviao->id, tempo_espera);
+        
+        pthread_cond_broadcast(&sim->recursos.cond_torres);
+        pthread_cond_broadcast(&sim->recursos.cond_pistas);
+        pthread_cond_broadcast(&sim->recursos.cond_portoes);
+    }
+}
+
+void processar_aging_dinamico(SimulacaoAeroporto* sim, Aviao* aviao, time_t agora) {
+    if (aviao->estado == AGUARDANDO_POUSO || 
+        aviao->estado == AGUARDANDO_DESEMBARQUE || 
+        aviao->estado == AGUARDANDO_DECOLAGEM) {
+        
+        int prioridade_antiga = aviao->prioridade_dinamica;
+        aviao->prioridade_dinamica = calcular_prioridade_dinamica(aviao, agora, sim);
+        
+        atualizar_prioridade_nas_filas(sim, aviao);
+        
+        if (aviao->prioridade_dinamica > prioridade_antiga + 50) { 
+            log_evento_ui(sim, aviao, LOG_INFO, "Prioridade atualizada: %d→%d (aging)", prioridade_antiga, aviao->prioridade_dinamica); 
+        }
+    }
+}
+
+void processar_aging_aviao(SimulacaoAeroporto* sim, Aviao* aviao, time_t agora) {
+    if (aviao->estado == AGUARDANDO_POUSO) {
+        int tempo_espera = calcular_tempo_espera_efetivo(sim, aviao->tempo_inicio_espera_ar);
+        processar_aging_pouso(sim, aviao, tempo_espera);
+    }
+    
+    if (aviao->estado == AGUARDANDO_DESEMBARQUE) {
+        int tempo_espera = calcular_tempo_espera_efetivo(sim, aviao->chegada_na_fila);
+        processar_aging_desembarque(sim, aviao, tempo_espera);
+    }
+    
+    if (aviao->estado == AGUARDANDO_DECOLAGEM) {
+        int tempo_espera = calcular_tempo_espera_efetivo(sim, aviao->tempo_inicio_espera);
+        processar_aging_decolagem(sim, aviao, tempo_espera);
+    }
+    
+    processar_aging_dinamico(sim, aviao, agora);
+}
+
+// =============== FUNÇÕES DE VERIFICAÇÃO E MONITORAMENTO ===============
 void verificar_avioes_em_espera(SimulacaoAeroporto* sim) {
     if (sim == NULL) return;
     
-    // Não atualiza tempos durante pausa
     pthread_mutex_lock(&sim->mutex_pausado);
     if (sim->pausado) {
         pthread_mutex_unlock(&sim->mutex_pausado);
@@ -235,81 +308,11 @@ void verificar_avioes_em_espera(SimulacaoAeroporto* sim) {
     for (int i = 0; i < sim->metricas.total_avioes_criados && i < sim->max_avioes; i++) {
         Aviao* aviao = &sim->avioes[i];
         
-        if (aviao->id <= 0 || aviao->estado == FINALIZADO_SUCESSO || 
-            aviao->estado == FALHA_STARVATION || aviao->estado == FALHA_DEADLOCK) {
+        if (aviao_deve_ser_ignorado(aviao)) {
             continue;
         }
         
-        // AGING PARA AVIÕES AGUARDANDO POUSO
-        if (aviao->estado == AGUARDANDO_POUSO) {
-            int tempo_espera = calcular_tempo_espera_efetivo(sim, aviao->tempo_inicio_espera_ar);
-            
-            if (tempo_espera >= 90 && !aviao->crash_iminente) {
-                // Avião crashed após 90 segundos
-                aviao->crash_iminente = true;
-                log_evento_ui(sim, aviao, LOG_ERROR, "CRASH! Avião %d caiu após 90s de espera no ar", aviao->id);
-                atualizar_estado_aviao(aviao, FALHA_STARVATION);
-                incrementar_aviao_falha_starvation(&sim->metricas);
-                
-            } else if (tempo_espera >= 60 && !aviao->em_alerta) {
-                // Alerta após 60 segundos - PRIORIDADE EXTREMA
-                aviao->em_alerta = true;
-                log_evento_ui(sim, aviao, LOG_WARNING, "ALERTA CRÍTICO! Avião %d há %ds no ar - PRIORIDADE EXTREMA!", aviao->id, tempo_espera);
-                
-                // Força um broadcast para que este avião seja processado imediatamente
-                pthread_cond_broadcast(&sim->recursos.cond_torres);
-                pthread_cond_broadcast(&sim->recursos.cond_pistas);
-                pthread_cond_broadcast(&sim->recursos.cond_portoes);
-            }
-        }
-        
-        // AGING PARA AVIÕES AGUARDANDO DESEMBARQUE
-        if (aviao->estado == AGUARDANDO_DESEMBARQUE) {
-            int tempo_espera = calcular_tempo_espera_efetivo(sim, aviao->chegada_na_fila);
-            
-            if (tempo_espera >= 45 && !aviao->em_alerta) {
-                aviao->em_alerta = true;
-                log_evento_ui(sim, aviao, LOG_WARNING, "ALERTA! Avião %d aguardando desembarque há %ds", aviao->id, tempo_espera);
-                
-                // Força broadcasts para acelerar processamento
-                pthread_cond_broadcast(&sim->recursos.cond_torres);
-                pthread_cond_broadcast(&sim->recursos.cond_portoes);
-            }
-        }
-        
-        // AGING PARA AVIÕES AGUARDANDO DECOLAGEM
-        if (aviao->estado == AGUARDANDO_DECOLAGEM) {
-            int tempo_espera = calcular_tempo_espera_efetivo(sim, aviao->tempo_inicio_espera);
-            
-            if (tempo_espera >= 30 && !aviao->em_alerta) {
-                aviao->em_alerta = true;
-                log_evento_ui(sim, aviao, LOG_WARNING, "ALERTA! Avião %d aguardando decolagem há %ds", aviao->id, tempo_espera);
-                
-                // Força broadcasts para acelerar processamento
-                pthread_cond_broadcast(&sim->recursos.cond_torres);
-                pthread_cond_broadcast(&sim->recursos.cond_pistas);
-                pthread_cond_broadcast(&sim->recursos.cond_portoes);
-            }
-        }
-        
-        // AGING DINÂMICO - Atualiza prioridade para todos os aviões em espera
-        if (aviao->estado == AGUARDANDO_POUSO || 
-            aviao->estado == AGUARDANDO_DESEMBARQUE || 
-            aviao->estado == AGUARDANDO_DECOLAGEM) {
-            
-            // Atualiza prioridade dinâmica
-            int prioridade_antiga = aviao->prioridade_dinamica;
-            aviao->prioridade_dinamica = calcular_prioridade_dinamica(aviao, agora, sim);
-            
-            // Atualiza prioridade nas filas correspondentes
-            atualizar_prioridade_nas_filas(sim, aviao);
-            
-            // Log quando a prioridade aumenta significativamente
-            if (aviao->prioridade_dinamica > prioridade_antiga + 50) {
-                log_evento_ui(sim, aviao, LOG_INFO, "⚡ Prioridade atualizada: %d→%d (aging)", 
-                             prioridade_antiga, aviao->prioridade_dinamica);
-            }
-        }
+        processar_aging_aviao(sim, aviao, agora);
     }
     
     pthread_mutex_unlock(&sim->mutex_simulacao);
