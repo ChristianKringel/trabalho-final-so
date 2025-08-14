@@ -20,39 +20,58 @@ void inicializar_metricas(MetricasSimulacao* metricas)
     pthread_mutex_init(&metricas->mutex_metricas, NULL);
 }
 
+void inicializar_pistas(RecursosAeroporto* recursos, int pistas)
+{
+    recursos->total_pistas = pistas;
+    recursos->pistas_disponiveis = pistas;
+
+    for (int i = 0; i < MAX_PISTAS; i++) {
+        recursos->pista_ocupada_por[i] = -1; 
+    }
+    
+    pthread_mutex_init(&recursos->mutex_pistas, NULL);
+    pthread_cond_init(&recursos->cond_pistas, NULL);
+    inicializar_fila_prioridade(&recursos->fila_pistas);
+}
+
+void inicializar_portoes(RecursosAeroporto* recursos, int portoes)
+{
+    recursos->total_portoes = portoes;
+    recursos->portoes_disponiveis = portoes;
+
+    for (int i = 0; i < MAX_PORTOES; i++) {
+        recursos->portao_ocupado_por[i] = -1; 
+    }
+    
+    pthread_mutex_init(&recursos->mutex_portoes, NULL);
+    pthread_cond_init(&recursos->cond_portoes, NULL);
+    inicializar_fila_prioridade(&recursos->fila_portoes);
+}
+
+void inicializar_torre(RecursosAeroporto* recursos, int capacidade)
+{
+    recursos->capacidade_torre = capacidade;
+    recursos->slots_torre_disponiveis = capacidade;
+    recursos->operacoes_ativas_torre = 0;
+
+    for (int i = 0; i < MAX_OP_TORRE; i++) {
+        recursos->torre_ocupada_por[i] = -1; 
+    }
+    pthread_mutex_init(&recursos->mutex_torres, NULL);
+    pthread_cond_init(&recursos->cond_torres, NULL);
+    inicializar_fila_prioridade(&recursos->fila_torres);
+}
+
+
 void inicializar_recursos(RecursosAeroporto* recursos, int pistas, int portoes, int torres)
 {
     if (recursos == NULL) {
         return; 
     }
 
-    recursos->total_pistas = pistas;
-    recursos->pistas_disponiveis = pistas;
-    for (int i = 0; i < MAX_PISTAS; i++) {
-        recursos->pista_ocupada_por[i] = -1; 
-    }
-    pthread_mutex_init(&recursos->mutex_pistas, NULL);
-    pthread_cond_init(&recursos->cond_pistas, NULL);
-    inicializar_fila_prioridade(&recursos->fila_pistas);
-
-    recursos->total_portoes = portoes;
-    recursos->portoes_disponiveis = portoes;
-    for (int i = 0; i < MAX_PORTOES; i++) {
-        recursos->portao_ocupado_por[i] = -1; 
-    }
-    pthread_mutex_init(&recursos->mutex_portoes, NULL);
-    pthread_cond_init(&recursos->cond_portoes, NULL);
-    inicializar_fila_prioridade(&recursos->fila_portoes);
-
-    recursos->capacidade_torre = CAPACIDADE_TORRE;
-    recursos->slots_torre_disponiveis = CAPACIDADE_TORRE;
-    recursos->operacoes_ativas_torre = 0;
-    for (int i = 0; i < CAPACIDADE_TORRE; i++) {
-        recursos->torre_ocupada_por[i] = -1;
-    }
-    pthread_mutex_init(&recursos->mutex_torres, NULL);
-    pthread_cond_init(&recursos->cond_torres, NULL);
-    inicializar_fila_prioridade(&recursos->fila_torres);
+    inicializar_pistas(recursos, pistas);
+    inicializar_portoes(recursos, portoes);
+    inicializar_torre(recursos, torres);
 }
 
 SimulacaoAeroporto* inicializar_simulacao(int pistas, int portoes, int torres, int tempo_simulacao, int max_avioes)
