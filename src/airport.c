@@ -135,7 +135,7 @@ int solicitar_torre(SimulacaoAeroporto* sim, int id_aviao, TipoVoo tipo) {
     recursos->operacoes_ativas_torre++;
     
     // Encontra um slot livre para registrar o avião
-    for (int i = 0; i < CAPACIDADE_TORRE; i++) {
+    for (int i = 0; i < recursos->capacidade_torre; i++) {
         if (recursos->torre_ocupada_por[i] == -1) {
             recursos->torre_ocupada_por[i] = id_aviao;
             if (id_aviao > 0 && id_aviao <= sim->max_avioes) {
@@ -169,7 +169,7 @@ void liberar_torre(SimulacaoAeroporto* sim, int id_aviao) {
         
         // Encontra e libera o slot específico do avião
         int slot_liberado = sim->avioes[id_aviao - 1].torre_alocada - 1; // -1 pois foi +1 na alocação
-        if (slot_liberado >= 0 && slot_liberado < CAPACIDADE_TORRE) {
+        if (slot_liberado >= 0 && slot_liberado < recursos->capacidade_torre) {
             recursos->torre_ocupada_por[slot_liberado] = -1;
         }
         
@@ -357,7 +357,7 @@ int solicitar_torre_com_prioridade(SimulacaoAeroporto* sim, Aviao* aviao) {
         
         // Encontra um slot livre para registrar o avião
         int slot_alocado = -1;
-        for (int i = 0; i < CAPACIDADE_TORRE; i++) {
+        for (int i = 0; i < recursos->capacidade_torre; i++) {
             if (recursos->torre_ocupada_por[i] == -1) {
                 recursos->torre_ocupada_por[i] = aviao->id;
                 slot_alocado = i;
@@ -391,7 +391,7 @@ int solicitar_uso_torre(SimulacaoAeroporto* sim, Aviao* aviao) {
     recursos->operacoes_ativas_torre++;
     
     // Encontra um slot livre
-    for (int i = 0; i < CAPACIDADE_TORRE; i++) {
+    for (int i = 0; i < recursos->capacidade_torre; i++) {
         if (recursos->torre_ocupada_por[i] == -1) {
             recursos->torre_ocupada_por[i] = aviao->id;
             aviao->torre_alocada = i + 1;
@@ -440,7 +440,7 @@ int alocar_recursos_pouso_atomico(SimulacaoAeroporto* sim, Aviao* aviao) {
             // Aloca torre
             recursos->slots_torre_disponiveis--;
             recursos->operacoes_ativas_torre++;
-            for (int i = 0; i < CAPACIDADE_TORRE; i++) {
+            for (int i = 0; i < recursos->capacidade_torre; i++) {
                 if (recursos->torre_ocupada_por[i] == -1) {
                     recursos->torre_ocupada_por[i] = aviao->id;
                     aviao->torre_alocada = i + 1;
@@ -528,7 +528,7 @@ int alocar_recursos_decolagem_atomico(SimulacaoAeroporto* sim, Aviao* aviao) {
             // Aloca torre
             recursos->slots_torre_disponiveis--;
             recursos->operacoes_ativas_torre++;
-            for (int i = 0; i < CAPACIDADE_TORRE; i++) {
+            for (int i = 0; i < recursos->capacidade_torre; i++) {
                 if (recursos->torre_ocupada_por[i] == -1) {
                     recursos->torre_ocupada_por[i] = aviao->id;
                     aviao->torre_alocada = i + 1;
@@ -571,7 +571,7 @@ void liberar_todos_recursos(SimulacaoAeroporto* sim, Aviao* aviao) {
     if (aviao->torre_alocada > 0) {
         pthread_mutex_lock(&recursos->mutex_torres);
         int slot = aviao->torre_alocada - 1;
-        if (slot >= 0 && slot < CAPACIDADE_TORRE) {
+        if (slot >= 0 && slot < recursos->capacidade_torre) {
             recursos->torre_ocupada_por[slot] = -1;
         }
         recursos->slots_torre_disponiveis++;
