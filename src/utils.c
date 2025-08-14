@@ -20,19 +20,12 @@ void inserir_na_fila_prioridade(FilaPrioridade* fila, int aviao_id, int priorida
     
     pthread_mutex_lock(&fila->mutex);
     
-    // Insere ordenado por prioridade (maior prioridade primeiro)
     int pos = fila->tamanho;
     while(pos > 0 && fila->prioridades[pos-1] <= prioridade){
         fila->avioes_ids[pos] = fila->avioes_ids[pos - 1];
         fila->prioridades[pos] = fila->prioridades[pos - 1];
         pos--;
     }
-    // int pos = fila->tamanho;
-    // while (pos > 0 && fila->prioridades[pos - 1] < prioridade) {
-    //     fila->avioes_ids[pos] = fila->avioes_ids[pos - 1];
-    //     fila->prioridades[pos] = fila->prioridades[pos - 1];
-    //     pos--;
-    // }
     
     fila->avioes_ids[pos] = aviao_id;
     fila->prioridades[pos] = prioridade;
@@ -65,6 +58,30 @@ int remover_da_fila_prioridade(FilaPrioridade* fila, int aviao_id) {
     return aviao_id;
 }
 
+void remover_temporariamente_da_fila_prioridade(FilaPrioridade* fila, int posicao) {
+    for (int i = posicao; i < fila->tamanho - 1; i++) {
+        fila->avioes_ids[i] = fila->avioes_ids[i + 1];
+        fila->prioridades[i] = fila->prioridades[i + 1];
+    }
+    fila->tamanho--;
+}
+
+void encontrar_posicao_por_prioridade(FilaPrioridade* fila, int nova_prioridade, int* nova_pos) {
+    *nova_pos = fila->tamanho;
+    while (*nova_pos > 0 && fila->prioridades[*nova_pos - 1] <= nova_prioridade) {
+        fila->avioes_ids[*nova_pos] = fila->avioes_ids[*nova_pos - 1];
+        fila->prioridades[*nova_pos] = fila->prioridades[*nova_pos - 1];
+        (*nova_pos)--;
+    }
+}
+
+void inserir_na_nova_posicao(FilaPrioridade* fila, int nova_pos, int aviao_id, int nova_prioridade) {
+    fila->avioes_ids[nova_pos] = aviao_id;
+    fila->prioridades[nova_pos] = nova_prioridade;
+    fila->tamanho++;
+}
+    
+
 void destruir_fila_prioridade(FilaPrioridade* fila) {
     if (fila == NULL) return;
     
@@ -85,43 +102,34 @@ bool eh_minha_vez_na_fila(FilaPrioridade* fila, int aviao_id) {
     return fila->avioes_ids[0] == aviao_id; 
 }
 
+int obter_posicao_na_fila(FilaPrioridade* fila, int aviao_id) {
+    if (!fila || fila->tamanho == 0) return -1;
+    
+    for (int i = 0; i < fila->tamanho; i++) {
+        if (fila->avioes_ids[i] == aviao_id) {
+            return i;
+        }
+    }
+}
+
 void atualizar_prioridade_na_fila(FilaPrioridade* fila, int aviao_id, int nova_prioridade) {
     if (!fila || fila->tamanho == 0) return;
     
     pthread_mutex_lock(&fila->mutex);
     
-    // Encontra o avião na fila
-    int pos_atual = -1;
-    for (int i = 0; i < fila->tamanho; i++) {
-        if (fila->avioes_ids[i] == aviao_id) {
-            pos_atual = i;
-            break;
-        }
-    }
-    
-    if (pos_atual == -1) {
+    int posicao = obter_posicao_na_fila(fila, aviao_id);
+
+    if (posicao == -1) {
         pthread_mutex_unlock(&fila->mutex);
-        return; // Avião não está na fila
+        return; 
     }
     
-    // Remove temporariamente o avião da posição atual
-    for (int i = pos_atual; i < fila->tamanho - 1; i++) {
-        fila->avioes_ids[i] = fila->avioes_ids[i + 1];
-        fila->prioridades[i] = fila->prioridades[i + 1];
-    }
-    fila->tamanho--;
+    remover_temporariamente_da_fila_prioridade(fila, posicao);
     
-    // Reinsere na posição correta com a nova prioridade
-    int nova_pos = fila->tamanho;
-    while (nova_pos > 0 && fila->prioridades[nova_pos - 1] <= nova_prioridade) {
-        fila->avioes_ids[nova_pos] = fila->avioes_ids[nova_pos - 1];
-        fila->prioridades[nova_pos] = fila->prioridades[nova_pos - 1];
-        nova_pos--;
-    }
+    int nova_pos;
+    encontrar_posicao_por_prioridade(fila, nova_prioridade, &nova_pos);
     
-    fila->avioes_ids[nova_pos] = aviao_id;
-    fila->prioridades[nova_pos] = nova_prioridade;
-    fila->tamanho++;
+    inserir_na_nova_posicao(fila, nova_pos, aviao_id, nova_prioridade);
     
     pthread_mutex_unlock(&fila->mutex);
 }
