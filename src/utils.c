@@ -71,6 +71,9 @@ int remover_da_fila_prioridade(FilaPrioridade* fila, int aviao_id) {
     fila->avioes_ids[fila->tamanho] = -1;
     fila->prioridades[fila->tamanho] = 0;
     
+    // Sinalizar que a fila foi modificada
+    pthread_cond_signal(&fila->cond);
+    
     pthread_mutex_unlock(&fila->mutex);
     return aviao_id;
 }
@@ -113,8 +116,12 @@ int obter_proximo_da_fila_prioridade(FilaPrioridade* fila) {
 }
 
 bool eh_minha_vez_na_fila(FilaPrioridade* fila, int aviao_id) {
-    if (!fila || fila->tamanho == 0) { return false; }
+    if (!fila) return true; // Se não há fila, todos podem tentar
     
+    // Se a fila está vazia, qualquer avião pode tentar
+    if (fila->tamanho == 0) return true;
+    
+    // Verifica se é o primeiro da fila
     return fila->avioes_ids[0] == aviao_id; 
 }
 
@@ -1069,12 +1076,28 @@ int banker_request_resources(RecursosAeroporto* recursos, int aviao_id, int requ
         return -1; // ID inválido
     }
     
+    // CORREÇÃO: converter para ID original uma única vez
+    int aviao_id_original = aviao_id + 1;
+    
     // 1. Verificar se o pedido é válido
     for (int i = 0; i < N_RESOURCES; i++) {
         if (request[i] < 0 || request[i] > recursos->banco.necessidade[aviao_id][i]) {
             log_evento_ui(NULL, NULL, LOG_ERROR, "Banco: Pedido inválido do avião %d para recurso %d", aviao_id, i);
             return -2; // Pedido inválido
         }
+    }
+    
+    // 1.5. Verificar filas de prioridade para recursos solicitados
+    // Se o avião solicita um recurso, ele deve estar na frente da fila correspondente
+    // CORREÇÃO: usar aviao_id + 1 porque as filas usam IDs originais (não decrementados)
+    if (request[RECURSO_PISTA] > 0 && !eh_minha_vez_na_fila(&recursos->fila_pistas, aviao_id_original)) {
+        return -5; // Não é sua vez na fila de pistas
+    }
+    if (request[RECURSO_PORTAO] > 0 && !eh_minha_vez_na_fila(&recursos->fila_portoes, aviao_id_original)) {
+        return -6; // Não é sua vez na fila de portões
+    }
+    if (request[RECURSO_TORRE] > 0 && !eh_minha_vez_na_fila(&recursos->fila_torres, aviao_id_original)) {
+        return -7; // Não é sua vez na fila de torres
     }
     
     // 2. Verificar se os recursos estão disponíveis
@@ -1102,6 +1125,18 @@ int banker_request_resources(RecursosAeroporto* recursos, int aviao_id, int requ
         return -4; // Estado inseguro após alocação
     }
     
+    // 5. Remover o avião das filas de prioridade dos recursos alocados
+    // CORREÇÃO: usar aviao_id_original porque as filas usam IDs originais (não decrementados)
+    if (request[RECURSO_PISTA] > 0) {
+        remover_da_fila_prioridade(&recursos->fila_pistas, aviao_id_original);
+    }
+    if (request[RECURSO_PORTAO] > 0) {
+        remover_da_fila_prioridade(&recursos->fila_portoes, aviao_id_original);
+    }
+    if (request[RECURSO_TORRE] > 0) {
+        remover_da_fila_prioridade(&recursos->fila_torres, aviao_id_original);
+    }
+
     return 0; // Pedido atendido com sucesso
 }
 
@@ -1124,6 +1159,20 @@ void banker_release_resources(RecursosAeroporto* recursos, int aviao_id, int rel
         recursos->banco.alocacao[aviao_id][i] -= release[i];
         recursos->banco.necessidade[aviao_id][i] += release[i];
     }
+    
+    // 3. Sinalizar as filas de prioridade dos recursos liberados
+    if (release[RECURSO_PISTA] > 0) {
+        pthread_cond_signal(&recursos->fila_pistas.cond);
+    }
+    if (release[RECURSO_PORTAO] > 0) {
+        pthread_cond_signal(&recursos->fila_portoes.cond);
+    }
+    if (release[RECURSO_TORRE] > 0) {
+        pthread_cond_signal(&recursos->fila_torres.cond);
+    }
+    
+    // 4. Sinalizar também o condition variable geral do banco
+    pthread_cond_broadcast(&recursos->cond_banco);
 }
 
 void definir_necessidade_operacao(EstadoAviao operacao, int necessidade[N_RESOURCES]) {

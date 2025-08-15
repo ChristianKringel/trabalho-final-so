@@ -317,17 +317,71 @@ int solicitar_recursos_com_espera(SimulacaoAeroporto* sim, Aviao* aviao) {
     pthread_mutex_lock(&recursos->mutex_banco);
 
     int resultado_banqueiro = -1;
+    bool adicionado_nas_filas = false;
+    
     // 2. Loop de espera: continua tentando até o banqueiro aprovar o pedido
     while ((resultado_banqueiro = banker_request_resources(recursos, aviao->id - 1, pedido)) != 0) {
-        // Se o banqueiro negou, esperamos por uma mudança no estado dos recursos.
-        // A função pthread_cond_wait irá atomicamente desbloquear o mutex e esperar.
-        // Quando acordar, ela irá travar o mutex novamente antes de continuar.
-        pthread_cond_wait(&recursos->cond_banco, &recursos->mutex_banco);
+        // Adicionar às filas de prioridade na primeira tentativa que falhar
+        if (!adicionado_nas_filas) {
+            int prioridade = calcular_prioridade_dinamica(aviao, time(NULL), sim);
+            
+            if (pedido[RECURSO_PISTA] > 0) {
+                inserir_na_fila_prioridade(&recursos->fila_pistas, aviao->id, prioridade);
+            }
+            if (pedido[RECURSO_PORTAO] > 0) {
+                inserir_na_fila_prioridade(&recursos->fila_portoes, aviao->id, prioridade);
+            }
+            if (pedido[RECURSO_TORRE] > 0) {
+                inserir_na_fila_prioridade(&recursos->fila_torres, aviao->id, prioridade);
+            }
+            adicionado_nas_filas = true;
+        }
+        
+        // Aguardar nas filas de prioridade específicas
+        if (resultado_banqueiro == -5) { // Não é sua vez na fila de pistas
+            pthread_cond_wait(&recursos->fila_pistas.cond, &recursos->mutex_banco);
+        } else if (resultado_banqueiro == -6) { // Não é sua vez na fila de portões
+            pthread_cond_wait(&recursos->fila_portoes.cond, &recursos->mutex_banco);
+        } else if (resultado_banqueiro == -7) { // Não é sua vez na fila de torres
+            pthread_cond_wait(&recursos->fila_torres.cond, &recursos->mutex_banco);
+        } else {
+            // Para outros tipos de erro (recursos insuficientes, estado inseguro, etc.)
+            pthread_cond_wait(&recursos->cond_banco, &recursos->mutex_banco);
+        }
 
         // Se a simulação foi desativada enquanto esperávamos, saímos.
         if (!sim->ativa) {
             pthread_mutex_unlock(&recursos->mutex_banco);
             return -1; // Falha por término da simulação
+        }
+        
+        // Atualizar prioridade dinamicamente a cada tentativa para evitar starvation
+        if (adicionado_nas_filas) {
+            int nova_prioridade = calcular_prioridade_dinamica(aviao, time(NULL), sim);
+            
+            if (pedido[RECURSO_PISTA] > 0) {
+                atualizar_prioridade_na_fila(&recursos->fila_pistas, aviao->id, nova_prioridade);
+            }
+            if (pedido[RECURSO_PORTAO] > 0) {
+                atualizar_prioridade_na_fila(&recursos->fila_portoes, aviao->id, nova_prioridade);
+            }
+            if (pedido[RECURSO_TORRE] > 0) {
+                atualizar_prioridade_na_fila(&recursos->fila_torres, aviao->id, nova_prioridade);
+            }
+        }
+    }
+    
+    // 3. Garantir que o avião seja removido das filas após conseguir recursos
+    // (redundante com a remoção feita em banker_request_resources, mas por segurança)
+    if (adicionado_nas_filas) {
+        if (pedido[RECURSO_PISTA] > 0) {
+            remover_da_fila_prioridade(&recursos->fila_pistas, aviao->id);
+        }
+        if (pedido[RECURSO_PORTAO] > 0) {
+            remover_da_fila_prioridade(&recursos->fila_portoes, aviao->id);
+        }
+        if (pedido[RECURSO_TORRE] > 0) {
+            remover_da_fila_prioridade(&recursos->fila_torres, aviao->id);
         }
     }
     
