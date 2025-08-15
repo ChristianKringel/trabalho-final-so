@@ -136,6 +136,9 @@ int decolagem_internacional_atomica(Aviao* aviao, SimulacaoAeroporto* sim) {
     
     if (solicitar_recursos_com_espera(sim, aviao) != 0) {
         log_evento_ui(sim, aviao, LOG_ERROR, "FALHA: Não foi possível alocar recursos para decolagem");
+        if (aviao->portao_alocado >= 0) {
+            liberar_portao(sim, aviao->id, aviao->portao_alocado);
+        }
         return 0;
     }
     
@@ -144,7 +147,9 @@ int decolagem_internacional_atomica(Aviao* aviao, SimulacaoAeroporto* sim) {
     
     sleep(3 + rand() % 4); 
 
-    liberar_todos_recursos(sim, aviao);
+    liberar_portao(sim, aviao->id, aviao->portao_alocado);
+    liberar_pista(sim, aviao->id, aviao->pista_alocada);
+    liberar_torre(sim, aviao->id);
     
     aviao->estado = FINALIZADO_SUCESSO;
     log_evento_ui(sim, aviao, LOG_SUCCESS, "VOO FINALIZADO COM SUCESSO!");
@@ -157,6 +162,9 @@ int decolagem_domestica_atomica(Aviao* aviao, SimulacaoAeroporto* sim) {
     
     if (solicitar_recursos_com_espera(sim, aviao) != 0) {
         log_evento_ui(sim, aviao, LOG_ERROR, "FALHA: Não foi possível alocar recursos para decolagem");
+        if (aviao->portao_alocado >= 0) {
+            liberar_portao(sim, aviao->id, aviao->portao_alocado);
+        }
         return 0;
     }
     
@@ -165,7 +173,10 @@ int decolagem_domestica_atomica(Aviao* aviao, SimulacaoAeroporto* sim) {
     
     sleep(2 + rand() % 3);
     
-    liberar_todos_recursos(sim, aviao);
+    
+    liberar_portao(sim, aviao->id, aviao->portao_alocado);
+    liberar_pista(sim, aviao->id, aviao->pista_alocada);
+    liberar_torre(sim, aviao->id);
     
     aviao->estado = FINALIZADO_SUCESSO;
     log_evento_ui(sim, aviao, LOG_SUCCESS, "VOO FINALIZADO COM SUCESSO!");
