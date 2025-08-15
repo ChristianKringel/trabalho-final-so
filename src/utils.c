@@ -21,7 +21,8 @@ void inserir_na_fila_prioridade(FilaPrioridade* fila, int aviao_id, int priorida
     pthread_mutex_lock(&fila->mutex);
     
     int pos = fila->tamanho;
-    while(pos > 0 && fila->prioridades[pos-1] <= prioridade){
+    // CORREÇÃO: ordenação decrescente - maiores prioridades primeiro
+    while(pos > 0 && fila->prioridades[pos-1] < prioridade){
         fila->avioes_ids[pos] = fila->avioes_ids[pos - 1];
         fila->prioridades[pos] = fila->prioridades[pos - 1];
         pos--;
@@ -45,7 +46,23 @@ int remover_da_fila_prioridade(FilaPrioridade* fila, int aviao_id) {
         return -1;
     }
     
-    for (int i = 0; i < fila->tamanho - 1; i++) {
+    // Encontra o avião específico na fila
+    int pos_encontrada = -1;
+    for (int i = 0; i < fila->tamanho; i++) {
+        if (fila->avioes_ids[i] == aviao_id) {
+            pos_encontrada = i;
+            break;
+        }
+    }
+    
+    // Se não encontrou o avião, retorna erro
+    if (pos_encontrada == -1) {
+        pthread_mutex_unlock(&fila->mutex);
+        return -1;
+    }
+    
+    // Move todos os elementos após a posição encontrada uma posição para trás
+    for (int i = pos_encontrada; i < fila->tamanho - 1; i++) {
         fila->avioes_ids[i] = fila->avioes_ids[i + 1];
         fila->prioridades[i] = fila->prioridades[i + 1];
     }
@@ -215,6 +232,152 @@ int calcular_prioridade_dinamica(Aviao* aviao, time_t agora, SimulacaoAeroporto*
 
 bool aviao_deve_ser_ignorado(Aviao* aviao) {
     return aviao->id <= 0 || aviao->estado == FINALIZADO_SUCESSO || aviao->estado == FALHA_STARVATION || aviao->estado == FALHA_DEADLOCK;
+}
+
+// =============== FUNÇÕES HÍBRIDAS PRIORIDADE + RECURSOS ===============
+
+// Verifica se um avião pode acessar recurso considerando prioridade E disponibilidade
+bool pode_acessar_recurso_hibrido(FilaPrioridade* fila, int aviao_id, int recursos_disponiveis) {
+    if (!fila || fila->tamanho == 0 || recursos_disponiveis <= 0) {
+        return false;
+    }
+    
+    // Se não há outros aviões na fila, pode acessar imediatamente
+    if (fila->tamanho == 1 && fila->avioes_ids[0] == aviao_id) {
+        return true;
+    }
+    
+    // Obter a posição do avião na fila
+    int posicao = -1;
+    int prioridade_aviao = -1;
+    for (int i = 0; i < fila->tamanho; i++) {
+        if (fila->avioes_ids[i] == aviao_id) {
+            posicao = i;
+            prioridade_aviao = fila->prioridades[i];
+            break;
+        }
+    }
+    
+    if (posicao == -1) return false; // Avião não está na fila
+    
+    // PRIORIDADE ABSOLUTA PARA EMERGÊNCIAS:
+    
+    // 1. CRASH IMINENTE: Sempre pode acessar (prioridade >= 50000)
+    if (prioridade_aviao >= 50000) {
+        return true;
+    }
+    
+    // 2. ALERTA CRÍTICO: Sempre pode acessar se há recursos (prioridade >= 5000)
+    if (prioridade_aviao >= 5000 && recursos_disponiveis > 0) {
+        return true;
+    }
+    
+    // 3. ALTA PRIORIDADE URGENTE: Pode acessar se há recursos suficientes (prioridade >= 1000)
+    if (prioridade_aviao >= 1000 && recursos_disponiveis > 0) {
+        return true;
+    }
+    
+    // 4. MÚLTIPLOS RECURSOS: Acesso concorrente mais agressivo
+    //    Permitir todos os aviões que estão dentro do número de recursos disponíveis
+    if (posicao < recursos_disponiveis) {
+        // Critério mais flexível - qualquer avião com prioridade >= 30 pode acessar
+        if (prioridade_aviao >= 30) {
+            return true;
+        }
+        
+        // OU se está entre os primeiros 50% da fila ou até 5 primeiros aviões
+        int limite_flexivel = (fila->tamanho / 2) + 1;
+        if (limite_flexivel > 5) limite_flexivel = 5;
+        if (posicao < limite_flexivel) {
+            return true;
+        }
+    }
+    
+    // 5. PRIMEIRA METADE DA FILA: Se há pelo menos 2 recursos livres, 
+    //    permitir aviões da primeira metade da fila
+    if (recursos_disponiveis >= 2) {
+        int limite_metade = (fila->tamanho / 2);
+        if (posicao <= limite_metade && prioridade_aviao >= 50) {
+            return true;
+        }
+    }
+    
+    // 6. PRIMEIRO DA FILA: Sempre pode acessar (compatibilidade)
+    if (posicao == 0) {
+        return true;
+    }
+    
+    return false;
+}
+
+// Obtém o valor de prioridade que delimita os 15% superiores da fila
+int obter_faixa_prioridade_maxima(FilaPrioridade* fila) {
+    if (!fila || fila->tamanho == 0) return 0;
+    
+    // Para emergências (prioridade > 10000), sempre permitir
+    if (fila->tamanho > 0 && fila->prioridades[0] >= 10000) {
+        return fila->prioridades[0];
+    }
+    
+    // Calcular 15% superiores (mínimo 1, máximo 3)
+    int limite_alta_prioridade = (fila->tamanho * 15) / 100;
+    if (limite_alta_prioridade < 1) limite_alta_prioridade = 1;
+    if (limite_alta_prioridade > 3) limite_alta_prioridade = 3;
+    
+    // Retornar a prioridade do último avião na faixa de alta prioridade
+    int indice_corte = limite_alta_prioridade - 1;
+    if (indice_corte >= fila->tamanho) indice_corte = fila->tamanho - 1;
+    
+    return fila->prioridades[indice_corte];
+}
+
+// Conta quantos aviões estão na faixa de alta prioridade
+int contar_avioes_alta_prioridade(FilaPrioridade* fila, int prioridade_corte) {
+    if (!fila || fila->tamanho == 0) return 0;
+    
+    int contador = 0;
+    for (int i = 0; i < fila->tamanho; i++) {
+        if (fila->prioridades[i] >= prioridade_corte) {
+            contador++;
+        } else {
+            break; // Fila está ordenada, então pode parar aqui
+        }
+    }
+    
+    return contador;
+}
+
+// Verifica se um avião é elegível para acesso híbrido considerando múltiplos fatores
+bool eh_elegivel_para_acesso_hibrido(FilaPrioridade* fila, int aviao_id, int recursos_disponiveis, int faixa_prioridade) {
+    if (!fila || recursos_disponiveis <= 0) return false;
+    
+    // Encontrar posição e prioridade do avião
+    int posicao = -1;
+    int prioridade = 0;
+    
+    for (int i = 0; i < fila->tamanho; i++) {
+        if (fila->avioes_ids[i] == aviao_id) {
+            posicao = i;
+            prioridade = fila->prioridades[i];
+            break;
+        }
+    }
+    
+    if (posicao == -1) return false;
+    
+    // Critérios para elegibilidade:
+    // 1. Emergência (prioridade >= 10000) - sempre elegível
+    if (prioridade >= 10000) return true;
+    
+    // 2. Está na faixa de alta prioridade E há recursos suficientes
+    if (prioridade >= faixa_prioridade && posicao < recursos_disponiveis) {
+        return true;
+    }
+    
+    // 3. É o primeiro da fila (mantém compatibilidade)
+    if (posicao == 0) return true;
+    
+    return false;
 }
 
 // =============== FUNÇÕES DE AGING ===============
