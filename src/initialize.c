@@ -49,9 +49,9 @@ void inicializar_banqueiro(Banqueiro* banco, int pistas, int portoes, int torres
     for (int j = 0; j < N_RESOURCES; j++) {
         banco->disponivel[j] = 0;
     }
-    banco->disponivel[RECURSO_PISTA] = pistas;
-    banco->disponivel[RECURSO_PORTAO] = portoes;
-    banco->disponivel[RECURSO_TORRE] = torres;
+    banco->disponivel[RECURSO_PISTA] = 3;
+    banco->disponivel[RECURSO_PORTAO] = 5;
+    banco->disponivel[RECURSO_TORRE] = 2;
 
     //pthread_mutex_init(&banco->mutex_banqueiro, NULL);
 }
