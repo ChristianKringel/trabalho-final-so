@@ -34,21 +34,8 @@ static void draw_resource_line_free(WINDOW* win, int line, const char* prefix, i
 static void map_airplanes_to_towers(SimulacaoAeroporto* sim, int* avioes_usando_torres) {
     if (!sim || !avioes_usando_torres) return;
     
-    // Inicializa array - máximo de operações simultâneas na torre
     for (int i = 0; i < sim->recursos.capacidade_torre; i++) {
-        avioes_usando_torres[i] = -1;
-    }
-    
-    int torre_index = 0;
-    // Encontra aviões que estão usando a torre (máximo de CAPACIDADE_TORRE operações simultâneas)
-    for (int j = 0; j < sim->metricas.total_avioes_criados && torre_index < sim->recursos.capacidade_torre; j++) {
-        if (sim->avioes[j].id > 0 && sim->avioes[j].torre_alocada && 
-            (sim->avioes[j].estado == AGUARDANDO_POUSO || sim->avioes[j].estado == POUSANDO || 
-             sim->avioes[j].estado == AGUARDANDO_DESEMBARQUE || sim->avioes[j].estado == DESEMBARCANDO || 
-             sim->avioes[j].estado == AGUARDANDO_DECOLAGEM || sim->avioes[j].estado == DECOLANDO)) {
-            avioes_usando_torres[torre_index] = sim->avioes[j].id;
-            torre_index++;
-        }
+        avioes_usando_torres[i] = sim->recursos.torre_ocupada_por[i];
     }
 }
 

@@ -23,7 +23,7 @@ void inicializar_pistas(RecursosAeroporto* recursos, int pistas){
     recursos->total_pistas = pistas;
     recursos->pistas_disponiveis = pistas;
 
-    for (int i = 0; i < MAX_PISTAS; i++) {
+    for (int i = 0; i < pistas; i++) {
         recursos->pista_ocupada_por[i] = -1; 
     }
     
@@ -36,7 +36,7 @@ void inicializar_portoes(RecursosAeroporto* recursos, int portoes){
     recursos->total_portoes = portoes;
     recursos->portoes_disponiveis = portoes;
 
-    for (int i = 0; i < MAX_PORTOES; i++) {
+    for (int i = 0; i < portoes; i++) {
         recursos->portao_ocupado_por[i] = -1; 
     }
     
@@ -46,8 +46,8 @@ void inicializar_portoes(RecursosAeroporto* recursos, int portoes){
 }
 
 void inicializar_torre(RecursosAeroporto* recursos, int capacidade){
-    recursos->capacidade_torre = capacidade;
-    recursos->slots_torre_disponiveis = capacidade;
+    recursos->capacidade_torre = MAX_OP_TORRE;  
+    recursos->slots_torre_disponiveis = MAX_OP_TORRE;  
     recursos->operacoes_ativas_torre = 0;
 
     for (int i = 0; i < MAX_OP_TORRE; i++) {

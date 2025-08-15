@@ -98,23 +98,13 @@ int pouso_domestico_atomico(Aviao* aviao, SimulacaoAeroporto* sim) {
 int desembarque_internacional_atomico(Aviao* aviao, SimulacaoAeroporto* sim) {
     log_evento_ui(sim, aviao, LOG_INFO, "Iniciando desembarque internacional (ATÔMICO)");
     
-    // Libera torre primeiro (não precisa mais dela)
-    if (aviao->torre_alocada > 0) {
-        pthread_mutex_lock(&sim->recursos.mutex_torres);
-        int slot = aviao->torre_alocada - 1;
-        if (slot >= 0 && slot < sim->recursos.capacidade_torre) {
-            sim->recursos.torre_ocupada_por[slot] = -1;
-        }
-        sim->recursos.slots_torre_disponiveis++;
-        sim->recursos.operacoes_ativas_torre--;
-        aviao->torre_alocada = 0;
-        pthread_cond_broadcast(&sim->recursos.cond_torres);
-        pthread_mutex_unlock(&sim->recursos.mutex_torres);
-    }
+    // Libera torre após pouso conforme especificação
+    // Torre será realocada para desembarque
+    liberar_uso_torre(sim, aviao);
     
-    // Aloca portão
+    // Aloca torre + portão atomicamente
     if (alocar_recursos_desembarque_atomico(sim, aviao) != 0) {
-        log_evento_ui(sim, aviao, LOG_ERROR, "FALHA: Não foi possível alocar portão para desembarque");
+        log_evento_ui(sim, aviao, LOG_ERROR, "FALHA: Não foi possível alocar recursos para desembarque");
         return 0;
     }
     
@@ -132,23 +122,13 @@ int desembarque_internacional_atomico(Aviao* aviao, SimulacaoAeroporto* sim) {
 int desembarque_domestico_atomico(Aviao* aviao, SimulacaoAeroporto* sim) {
     log_evento_ui(sim, aviao, LOG_INFO, "Iniciando desembarque doméstico (ATÔMICO)");
     
-    // Libera torre primeiro (não precisa mais dela)
-    if (aviao->torre_alocada > 0) {
-        pthread_mutex_lock(&sim->recursos.mutex_torres);
-        int slot = aviao->torre_alocada - 1;
-        if (slot >= 0 && slot < sim->recursos.capacidade_torre) {
-            sim->recursos.torre_ocupada_por[slot] = -1;
-        }
-        sim->recursos.slots_torre_disponiveis++;
-        sim->recursos.operacoes_ativas_torre--;
-        aviao->torre_alocada = 0;
-        pthread_cond_broadcast(&sim->recursos.cond_torres);
-        pthread_mutex_unlock(&sim->recursos.mutex_torres);
-    }
+    // Libera torre após pouso conforme especificação
+    // Torre será realocada para desembarque
+    liberar_uso_torre(sim, aviao);
     
-    // Aloca portão
+    // Aloca torre + portão atomicamente
     if (alocar_recursos_desembarque_atomico(sim, aviao) != 0) {
-        log_evento_ui(sim, aviao, LOG_ERROR, "FALHA: Não foi possível alocar portão para desembarque");
+        log_evento_ui(sim, aviao, LOG_ERROR, "FALHA: Não foi possível alocar recursos para desembarque");
         return 0;
     }
     
@@ -311,7 +291,7 @@ void* criador_avioes(void* arg) {
         if (!sim->ativa) break;
         
         usleep((rand() % 2000 + 500) * 1000); // A cada 0.5-2.5 segundos
-        //usleep(100000);
+        //usleep(2500000);
         pthread_mutex_lock(&sim->mutex_simulacao);
 
         if (proximo_id > sim->max_avioes) {
