@@ -18,7 +18,8 @@
 #define MAX_PORTOES 5
 #define MAX_TORRES 1
 #define MAX_OP_TORRE 2
-#define MAX_AVIOES 200
+#define MAX_AVIOES 50
+#define MAX_TEMPO_SIM 240
 #define N_RESOURCES 3
 
 // Enum para tipos de voo

@@ -22,11 +22,11 @@ void* ui_thread_func(void* arg) {
 }
 
 int main(int argc, char *argv[]) {
-    int num_pistas = MAX_PISTAS;
-    int num_portoes = MAX_PORTOES;
-    int num_torres = MAX_TORRES;
-    int tempo_total_sim = 240;
-    int max_avioes = 50;
+    int num_pistas      = MAX_PISTAS;
+    int num_portoes     = MAX_PORTOES;
+    int num_torres      = MAX_TORRES;
+    int tempo_total_sim = MAX_TEMPO_SIM;
+    int max_avioes      = MAX_AVIOES;
 
     bool pause_simulation = false; 
 
@@ -46,7 +46,7 @@ int main(int argc, char *argv[]) {
     pthread_t ui_thread_id;
     pthread_t criador_avioes_thread_id;
 
-    log_evento_ui(sim, NULL, LOG_SYSTEM, "=== SIMULACAO INICIADA ===");
+    log_evento_ui(sim, NULL, LOG_SYSTEM, "===== SIMULACAO INICIADA =====");
     log_evento_ui(sim, NULL, LOG_INFO, "Pressione 'P' para pausar, 'Q' para finalizar");
 
     pthread_create(&ui_thread_id, NULL, ui_thread_func, sim);
@@ -54,22 +54,22 @@ int main(int argc, char *argv[]) {
     pthread_create(&sim->monitor_thread, NULL, monitorar_avioes, sim);
 
     while(sim->ativa) {
-        int ch = getch();
-        if (ch == 'q' || ch == 'Q') {
+        int ch = tolower(getch());
+        if (ch == 'q') {
             log_evento_ui(sim, NULL, LOG_SYSTEM, "simulacao finalizada pelo usuário.");
             finalizar_simulacao(sim); 
             break;
         }
 
-        if (ch == 'p' || ch == 'P') {
+        if (ch == 'p') {
             pthread_mutex_lock(&sim->mutex_pausado);
             sim->pausado = !sim->pausado;
 
             if (sim->pausado) {
-                atualizar_tempo_pausa(sim, true);  // Inicia pausa
+                atualizar_tempo_pausa(sim, true);
                 log_evento_ui(sim, NULL, LOG_SYSTEM, "simulacao PAUSADA. Pressione 'p' para retomar.");
             } else {
-                atualizar_tempo_pausa(sim, false); // Finaliza pausa
+                atualizar_tempo_pausa(sim, false);
                 log_evento_ui(sim, NULL, LOG_SYSTEM, "simulacao RETOMADA.");
                 pthread_cond_broadcast(&sim->cond_pausado);
             }
@@ -78,7 +78,7 @@ int main(int argc, char *argv[]) {
         
         if (calcular_tempo_efetivo_simulacao(sim) >= tempo_total_sim) {
             log_evento_ui(sim, NULL, LOG_SYSTEM, "Tempo limite atingido - Finalizando simulacao");
-            log_evento_ui(sim, NULL, LOG_SYSTEM, "=== SIMULACAO FINALIZADA ===");
+            log_evento_ui(sim, NULL, LOG_SYSTEM, "===== SIMULACAO FINALIZADA =====");
             finalizar_simulacao(sim); 
             break;
         }
@@ -105,7 +105,7 @@ int main(int argc, char *argv[]) {
 
     close_terminal_ncurses();
     
-    gerar_relatorio_final(sim);
+    //gerar_relatorio_final(sim);
 
     liberar_memoria(sim);
     pthread_mutex_destroy(&sim->mutex_ui_log);
