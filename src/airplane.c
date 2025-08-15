@@ -46,14 +46,8 @@ int pouso_internacional_atomico(Aviao* aviao, SimulacaoAeroporto* sim) {
     
     sleep(2 + rand() % 3);
     
-    if (aviao->pista_alocada >= 0) {
-        pthread_mutex_lock(&sim->recursos.mutex_pistas);
-        sim->recursos.pista_ocupada_por[aviao->pista_alocada] = -1;
-        sim->recursos.pistas_disponiveis++;
-        pthread_cond_broadcast(&sim->recursos.cond_pistas);
-        pthread_mutex_unlock(&sim->recursos.mutex_pistas);
-        aviao->pista_alocada = -1;
-    }
+    liberar_pista(sim, aviao->id, aviao->pista_alocada);
+    liberar_torre(sim, aviao->id);
     
     aviao->estado = AGUARDANDO_DESEMBARQUE;
     log_evento_ui(sim, aviao, LOG_SUCCESS, "Pouso concluído - aguardando desembarque");
@@ -75,20 +69,13 @@ int pouso_domestico_atomico(Aviao* aviao, SimulacaoAeroporto* sim) {
     }
     
     aviao->estado = POUSANDO;
-    log_evento_ui(sim, aviao, LOG_SUCCESS, "POUSANDO - Pista %d, Torre slot %d", 
-                  aviao->pista_alocada, aviao->torre_alocada - 1);
+    log_evento_ui(sim, aviao, LOG_SUCCESS, "POUSANDO - Pista %d, Torre slot %d", aviao->pista_alocada, aviao->torre_alocada - 1);
     
     sleep(1 + rand() % 2);
-    
-    if (aviao->pista_alocada >= 0) {
-        pthread_mutex_lock(&sim->recursos.mutex_pistas);
-        sim->recursos.pista_ocupada_por[aviao->pista_alocada] = -1;
-        sim->recursos.pistas_disponiveis++;
-        pthread_cond_broadcast(&sim->recursos.cond_pistas);
-        pthread_mutex_unlock(&sim->recursos.mutex_pistas);
-        aviao->pista_alocada = -1;
-    }
-    
+
+    liberar_pista(sim, aviao->id, aviao->pista_alocada);
+    liberar_torre(sim, aviao->id);
+
     aviao->estado = AGUARDANDO_DESEMBARQUE;
     log_evento_ui(sim, aviao, LOG_SUCCESS, "Pouso concluído - aguardando desembarque");
     
@@ -98,11 +85,6 @@ int pouso_domestico_atomico(Aviao* aviao, SimulacaoAeroporto* sim) {
 int desembarque_internacional_atomico(Aviao* aviao, SimulacaoAeroporto* sim) {
     log_evento_ui(sim, aviao, LOG_INFO, "Iniciando desembarque internacional (ATÔMICO)");
     
-    // Libera torre após pouso conforme especificação
-    // Torre será realocada para desembarque
-    liberar_uso_torre(sim, aviao);
-    
-    // Aloca torre + portão atomicamente
     if (alocar_recursos_desembarque_atomico(sim, aviao) != 0) {
         log_evento_ui(sim, aviao, LOG_ERROR, "FALHA: Não foi possível alocar recursos para desembarque");
         return 0;
@@ -111,8 +93,12 @@ int desembarque_internacional_atomico(Aviao* aviao, SimulacaoAeroporto* sim) {
     aviao->estado = DESEMBARCANDO;
     log_evento_ui(sim, aviao, LOG_SUCCESS, "DESEMBARCANDO - Portão %d", aviao->portao_alocado);
     
-    sleep(3 + rand() % 4); // Desembarque internacional demora mais
-    
+    sleep(3 + rand() % 4);
+
+    liberar_uso_torre(sim, aviao);
+    usleep(250000);
+    liberar_portao(sim, aviao, aviao->portao_alocado);
+
     aviao->estado = AGUARDANDO_DECOLAGEM;
     log_evento_ui(sim, aviao, LOG_SUCCESS, "Desembarque concluído - aguardando decolagem");
     
@@ -122,11 +108,6 @@ int desembarque_internacional_atomico(Aviao* aviao, SimulacaoAeroporto* sim) {
 int desembarque_domestico_atomico(Aviao* aviao, SimulacaoAeroporto* sim) {
     log_evento_ui(sim, aviao, LOG_INFO, "Iniciando desembarque doméstico (ATÔMICO)");
     
-    // Libera torre após pouso conforme especificação
-    // Torre será realocada para desembarque
-    liberar_uso_torre(sim, aviao);
-    
-    // Aloca torre + portão atomicamente
     if (alocar_recursos_desembarque_atomico(sim, aviao) != 0) {
         log_evento_ui(sim, aviao, LOG_ERROR, "FALHA: Não foi possível alocar recursos para desembarque");
         return 0;
@@ -135,9 +116,14 @@ int desembarque_domestico_atomico(Aviao* aviao, SimulacaoAeroporto* sim) {
     aviao->estado = DESEMBARCANDO;
     log_evento_ui(sim, aviao, LOG_SUCCESS, "DESEMBARCANDO - Portão %d", aviao->portao_alocado);
     
-    sleep(2 + rand() % 3); // Desembarque doméstico é mais rápido
+    sleep(2 + rand() % 3);
     
+    liberar_uso_torre(sim, aviao->id);
+    usleep(250000);
+    liberar_portao(sim, aviao->id, aviao->portao_alocado);
+
     aviao->estado = AGUARDANDO_DECOLAGEM;
+
     log_evento_ui(sim, aviao, LOG_SUCCESS, "Desembarque concluído - aguardando decolagem");
     
     return 1;
@@ -146,30 +132,17 @@ int desembarque_domestico_atomico(Aviao* aviao, SimulacaoAeroporto* sim) {
 int decolagem_internacional_atomica(Aviao* aviao, SimulacaoAeroporto* sim) {
     log_evento_ui(sim, aviao, LOG_INFO, "Iniciando procedimento de decolagem internacional (ATÔMICO)");
     
-    // Libera portão primeiro
-    if (aviao->portao_alocado >= 0) {
-        pthread_mutex_lock(&sim->recursos.mutex_portoes);
-        sim->recursos.portao_ocupado_por[aviao->portao_alocado] = -1;
-        sim->recursos.portoes_disponiveis++;
-        pthread_cond_broadcast(&sim->recursos.cond_portoes);
-        pthread_mutex_unlock(&sim->recursos.mutex_portoes);
-        aviao->portao_alocado = -1;
-    }
-    
-    // Aloca recursos para decolagem (torre + pista)
     if (alocar_recursos_decolagem_atomico(sim, aviao) != 0) {
         log_evento_ui(sim, aviao, LOG_ERROR, "FALHA: Não foi possível alocar recursos para decolagem");
         return 0;
     }
     
     aviao->estado = DECOLANDO;
-    log_evento_ui(sim, aviao, LOG_SUCCESS, "DECOLANDO - Pista %d, Torre slot %d", 
-                  aviao->pista_alocada, aviao->torre_alocada - 1);
+    log_evento_ui(sim, aviao, LOG_SUCCESS, "DECOLANDO - Pista %d, Torre slot %d", aviao->pista_alocada, aviao->torre_alocada - 1);
     
-    sleep(3 + rand() % 4); // Decolagem internacional demora mais
-    
-    // Libera TODOS os recursos
-    liberar_todos_recursos(sim, aviao);
+    sleep(3 + rand() % 4); 
+
+    liberar_todos_recursos(sim, aviao->id);
     
     aviao->estado = FINALIZADO_SUCESSO;
     log_evento_ui(sim, aviao, LOG_SUCCESS, "VOO FINALIZADO COM SUCESSO!");
@@ -180,17 +153,6 @@ int decolagem_internacional_atomica(Aviao* aviao, SimulacaoAeroporto* sim) {
 int decolagem_domestica_atomica(Aviao* aviao, SimulacaoAeroporto* sim) {
     log_evento_ui(sim, aviao, LOG_INFO, "Iniciando procedimento de decolagem doméstica (ATÔMICO)");
     
-    // Libera portão primeiro
-    if (aviao->portao_alocado >= 0) {
-        pthread_mutex_lock(&sim->recursos.mutex_portoes);
-        sim->recursos.portao_ocupado_por[aviao->portao_alocado] = -1;
-        sim->recursos.portoes_disponiveis++;
-        pthread_cond_broadcast(&sim->recursos.cond_portoes);
-        pthread_mutex_unlock(&sim->recursos.mutex_portoes);
-        aviao->portao_alocado = -1;
-    }
-    
-    // Aloca recursos para decolagem (torre + pista)
     if (alocar_recursos_decolagem_atomico(sim, aviao) != 0) {
         log_evento_ui(sim, aviao, LOG_ERROR, "FALHA: Não foi possível alocar recursos para decolagem");
         return 0;
@@ -200,10 +162,9 @@ int decolagem_domestica_atomica(Aviao* aviao, SimulacaoAeroporto* sim) {
     log_evento_ui(sim, aviao, LOG_SUCCESS, "DECOLANDO - Pista %d, Torre slot %d", 
                   aviao->pista_alocada, aviao->torre_alocada - 1);
     
-    sleep(2 + rand() % 3); // Decolagem doméstica é mais rápida
+    sleep(2 + rand() % 3);
     
-    // Libera TODOS os recursos
-    liberar_todos_recursos(sim, aviao);
+    liberar_todos_recursos(sim, aviao->id);
     
     aviao->estado = FINALIZADO_SUCESSO;
     log_evento_ui(sim, aviao, LOG_SUCCESS, "VOO FINALIZADO COM SUCESSO!");
