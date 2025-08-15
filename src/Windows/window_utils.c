@@ -186,7 +186,9 @@ bool flight_has_gate(SimulacaoAeroporto* sim, int aviao_id) {
 bool flight_has_tower(Aviao* aviao) {
     if (!aviao) return false;
     
+    // Conforme especificação: POUSO, DESEMBARQUE e DECOLAGEM usam torre
     return (aviao->estado == POUSANDO || 
             aviao->estado == DESEMBARCANDO || 
-            aviao->estado == DECOLANDO);
+            aviao->estado == DECOLANDO) && 
+            aviao->torre_alocada > 0;
 }
