@@ -963,3 +963,180 @@ int calcular_tempo_espera_efetivo(SimulacaoAeroporto* sim, time_t inicio_espera)
     int tempo_efetivo = (int)(tempo_total - tempo_pausa_descontar);
     return tempo_efetivo > 0 ? tempo_efetivo : 0;
 }
+
+bool is_safe_state(Banqueiro* banco) {
+    int work[N_RESOURCES];
+    bool finish[MAX_AVIOES];
+    
+    // 1. Inicializar
+    for (int i = 0; i < N_RESOURCES; i++) {
+        work[i] = banco->disponivel[i];
+    }
+    
+    for (int i = 0; i < MAX_AVIOES; i++) {
+        finish[i] = true; // Aviões não ativos começam como "finalizados"
+        
+        // Verificar se avião está ativo (tem algum recurso ALOCADO atualmente)
+        // Só considerar aviões que realmente alocaram recursos, não apenas com necessidade
+        bool ativo = false;
+        for (int j = 0; j < N_RESOURCES; j++) {
+            if (banco->alocacao[i][j] > 0) {
+                ativo = true;
+                break;
+            }
+        }
+        if (ativo) finish[i] = false;
+    }
+    
+    // 2. Algoritmo principal
+    bool progresso = true;
+    while (progresso) {
+        progresso = false;
+        
+        for (int i = 0; i < MAX_AVIOES; i++) {
+            if (!finish[i]) {
+                // Verificar se pode satisfazer necessidade
+                bool pode_terminar = true;
+                for (int j = 0; j < N_RESOURCES; j++) {
+                    if (banco->necessidade[i][j] > work[j]) {
+                        pode_terminar = false;
+                        break;
+                    }
+                }
+                
+                if (pode_terminar) {
+                    // Simular liberação dos recursos
+                    for (int j = 0; j < N_RESOURCES; j++) {
+                        work[j] += banco->alocacao[i][j];
+                    }
+                    finish[i] = true;
+                    progresso = true;
+                }
+            }
+        }
+    }
+    
+    // 3. Verificar se todos terminaram
+    for (int i = 0; i < MAX_AVIOES; i++) {
+        if (!finish[i]) {
+            return false; // Estado inseguro
+        }
+    }
+    
+    return true; // Estado seguro
+}
+
+int banker_request_resources(RecursosAeroporto* recursos, int aviao_id, int request[]) {
+    //pthread_mutex_lock(&recursos->mutex_banco);
+    if (aviao_id < 0 || aviao_id >= MAX_AVIOES) {
+        return -1; // ID inválido
+    }
+    
+    // 1. Verificar se o pedido é válido
+    for (int i = 0; i < N_RESOURCES; i++) {
+        if (request[i] < 0 || request[i] > recursos->banco.necessidade[aviao_id][i]) {
+            log_evento_ui(NULL, NULL, LOG_ERROR, "Banco: Pedido inválido do avião %d para recurso %d", aviao_id, i);
+            return -2; // Pedido inválido
+        }
+    }
+    
+    // 2. Verificar se os recursos estão disponíveis
+    for (int i = 0; i < N_RESOURCES; i++) {
+        if (request[i] > recursos->banco.disponivel[i]) {
+            return -3; // Recursos insuficientes
+        }
+    }
+    
+    // 3. Simular alocação temporária
+    for (int i = 0; i < N_RESOURCES; i++) {
+        recursos->banco.disponivel[i] -= request[i];
+        recursos->banco.alocacao[aviao_id][i] += request[i];
+        recursos->banco.necessidade[aviao_id][i] -= request[i];
+    }
+    
+    // 4. Verificar se o estado permanece seguro
+    if (!is_safe_state(&recursos->banco)) {
+        // Reverter alocação temporária
+        for (int i = 0; i < N_RESOURCES; i++) {
+            recursos->banco.disponivel[i] += request[i];
+            recursos->banco.alocacao[aviao_id][i] -= request[i];
+            recursos->banco.necessidade[aviao_id][i] += request[i];
+        }
+        return -4; // Estado inseguro após alocação
+    }
+    
+    return 0; // Pedido atendido com sucesso
+}
+
+void banker_release_resources(RecursosAeroporto* recursos, int aviao_id, int release[]) {
+    //pthread_mutex_lock(&recursos->mutex_banco);
+    if (aviao_id < 0 || aviao_id >= MAX_AVIOES) {
+        return; // ID inválido
+    }
+    
+    // 1. Verificar se o release é válido
+    for (int i = 0; i < N_RESOURCES; i++) {
+        if (release[i] < 0 || release[i] > recursos->banco.alocacao[aviao_id][i]) {
+
+            return; // Release inválido
+        }
+    }
+    
+    // 2. Liberar os recursos
+    for (int i = 0; i < N_RESOURCES; i++) {
+        recursos->banco.disponivel[i] += release[i];
+        recursos->banco.alocacao[aviao_id][i] -= release[i];
+        recursos->banco.necessidade[aviao_id][i] += release[i];
+    }
+    
+    //pthread_mutex_unlock(&recursos->mutex_banco);
+}
+
+void definir_necessidade_operacao(EstadoAviao operacao, int necessidade[N_RESOURCES]) {
+    // Zerar array
+    for (int i = 0; i < N_RESOURCES; i++) {
+        necessidade[i] = 0;
+    }
+    
+    switch (operacao) {
+        case AGUARDANDO_POUSO:
+            necessidade[RECURSO_PISTA] = 1;
+            necessidade[RECURSO_TORRE] = 1;
+            break;
+            
+        case AGUARDANDO_DESEMBARQUE:
+            necessidade[RECURSO_PORTAO] = 1;
+            necessidade[RECURSO_TORRE] = 1;
+            break;
+            
+        case AGUARDANDO_DECOLAGEM:
+            necessidade[RECURSO_PISTA] = 1;
+            necessidade[RECURSO_PORTAO] = 1;
+            necessidade[RECURSO_TORRE] = 1;
+            break;
+            
+        default:
+            // Não precisa de recursos
+            break;
+    }
+}
+
+void banker_init_aviao(RecursosAeroporto* recursos, int aviao_id) {
+    if (aviao_id < 0 || aviao_id >= MAX_AVIOES) {
+        return; // ID inválido
+    }
+
+    pthread_mutex_lock(&recursos->mutex_banco);
+
+    // A necessidade máxima é para a decolagem (pior caso)
+    recursos->banco.necessidade[aviao_id][RECURSO_PISTA] = 1;
+    recursos->banco.necessidade[aviao_id][RECURSO_PORTAO] = 1;
+    recursos->banco.necessidade[aviao_id][RECURSO_TORRE] = 1;
+
+    // Garante que a alocação inicial é zero para este avião
+    for (int i = 0; i < N_RESOURCES; i++) {
+        recursos->banco.alocacao[aviao_id][i] = 0;
+    }
+
+    pthread_mutex_unlock(&recursos->mutex_banco);
+}

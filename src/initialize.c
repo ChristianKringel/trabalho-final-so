@@ -1,6 +1,21 @@
 #include "initialize.h"
 #include "utils.h"
 
+void inicializar_recursos(RecursosAeroporto* recursos, int pistas, int portoes, int torres){
+    if (recursos == NULL) {
+        return; 
+    }
+
+    inicializar_pistas(recursos, pistas);
+    inicializar_portoes(recursos, portoes);
+    inicializar_torre(recursos, torres);
+    
+    // =============== INICIALIZAÇÃO DO BANQUEIRO ===============
+    inicializar_banqueiro(&recursos->banco, pistas, portoes, torres);
+    pthread_mutex_init(&recursos->mutex_banco, NULL);
+    pthread_cond_init(&recursos->cond_banco, NULL);
+}
+
 void inicializar_metricas(MetricasSimulacao* metricas){
     if (metricas == NULL) {
         return; 
@@ -17,6 +32,28 @@ void inicializar_metricas(MetricasSimulacao* metricas){
     metricas->operacoes_decolagem = 0;
 
     pthread_mutex_init(&metricas->mutex_metricas, NULL);
+}
+
+void inicializar_banqueiro(Banqueiro* banco, int pistas, int portoes, int torres) {
+    if (banco == NULL) {
+        return; 
+    }
+
+    for (int i = 0; i < MAX_AVIOES; i++) {
+        for (int j = 0; j < N_RESOURCES; j++) {
+            banco->alocacao[i][j] = 0;
+            banco->necessidade[i][j] = 0;
+        }
+    }
+
+    for (int j = 0; j < N_RESOURCES; j++) {
+        banco->disponivel[j] = 0;
+    }
+    banco->disponivel[RECURSO_PISTA] = pistas;
+    banco->disponivel[RECURSO_PORTAO] = portoes;
+    banco->disponivel[RECURSO_TORRE] = torres;
+
+    //pthread_mutex_init(&banco->mutex_banqueiro, NULL);
 }
 
 void inicializar_pistas(RecursosAeroporto* recursos, int pistas){
@@ -58,15 +95,7 @@ void inicializar_torre(RecursosAeroporto* recursos, int capacidade){
     inicializar_fila_prioridade(&recursos->fila_torres);
 }
 
-void inicializar_recursos(RecursosAeroporto* recursos, int pistas, int portoes, int torres){
-    if (recursos == NULL) {
-        return; 
-    }
 
-    inicializar_pistas(recursos, pistas);
-    inicializar_portoes(recursos, portoes);
-    inicializar_torre(recursos, torres);
-}
 
 SimulacaoAeroporto* inicializar_simulacao(int pistas, int portoes, int torres, int tempo_simulacao, int max_avioes){
     SimulacaoAeroporto* sim = (SimulacaoAeroporto*)malloc(sizeof(SimulacaoAeroporto));

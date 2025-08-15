@@ -19,9 +19,13 @@
 #define MAX_TORRES 1
 #define MAX_OP_TORRE 2
 #define MAX_AVIOES 200
+#define N_RESOURCES 3
 
 // Enum para tipos de voo
-typedef enum { VOO_DOMESTICO, VOO_INTERNACIONAL } TipoVoo;
+typedef enum { 
+    VOO_DOMESTICO, 
+    VOO_INTERNACIONAL 
+} TipoVoo;
 
 // Enum para estados do aviao
 typedef enum {
@@ -37,6 +41,18 @@ typedef enum {
     FINALIZADO_SUCESSO
     
 } EstadoAviao;
+
+typedef enum {
+    RECURSO_PISTA = 0,
+    RECURSO_PORTAO = 1, 
+    RECURSO_TORRE = 2
+} TipoRecurso;
+typedef struct {
+    int alocacao[MAX_AVIOES][N_RESOURCES];
+    int necessidade[MAX_AVIOES][N_RESOURCES];
+    int disponivel[N_RESOURCES];
+    pthread_mutex_t mutex_banqueiro;
+} Banqueiro;
 
 // Estrutura para fila de prioridade
 typedef struct {
@@ -70,6 +86,10 @@ typedef struct {
     int operacoes_ativas_torre; 
     int torre_ocupada_por[MAX_OP_TORRE]; 
     FilaPrioridade fila_torres;
+
+    Banqueiro banco;
+    pthread_mutex_t mutex_banco;
+    pthread_cond_t cond_banco;
 
 } RecursosAeroporto;
 

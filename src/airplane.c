@@ -36,7 +36,7 @@ int pouso_internacional_atomico(Aviao* aviao, SimulacaoAeroporto* sim) {
         return 0;
     }
     
-    if (alocar_recursos_pouso_atomico(sim, aviao) != 0) {
+    if (solicitar_recursos_com_espera(sim, aviao) != 0) {
         log_evento_ui(sim, aviao, LOG_ERROR, "FALHA: Não foi possível alocar recursos para pouso");
         return 0;
     }
@@ -63,9 +63,9 @@ int pouso_domestico_atomico(Aviao* aviao, SimulacaoAeroporto* sim) {
         return 0;
     }
     
-    if (alocar_recursos_pouso_atomico(sim, aviao) != 0) {
+    if (solicitar_recursos_com_espera(sim, aviao) != 0) {
         log_evento_ui(sim, aviao, LOG_ERROR, "FALHA: Não foi possível alocar recursos para pouso");
-        return 0;
+        return 0; 
     }
     
     aviao->estado = POUSANDO;
@@ -85,7 +85,7 @@ int pouso_domestico_atomico(Aviao* aviao, SimulacaoAeroporto* sim) {
 int desembarque_internacional_atomico(Aviao* aviao, SimulacaoAeroporto* sim) {
     log_evento_ui(sim, aviao, LOG_INFO, "Iniciando desembarque internacional (ATÔMICO)");
     
-    if (alocar_recursos_desembarque_atomico(sim, aviao) != 0) {
+    if (solicitar_recursos_com_espera(sim, aviao) != 0) {
         log_evento_ui(sim, aviao, LOG_ERROR, "FALHA: Não foi possível alocar recursos para desembarque");
         return 0;
     }
@@ -95,9 +95,10 @@ int desembarque_internacional_atomico(Aviao* aviao, SimulacaoAeroporto* sim) {
     
     sleep(3 + rand() % 4);
 
-    liberar_uso_torre(sim, aviao);
+    // Libera recursos corretamente via funções que atualizam o banqueiro
+    liberar_torre(sim, aviao->id);
     usleep(250000);
-    liberar_portao(sim, aviao, aviao->portao_alocado);
+    liberar_portao(sim, aviao->id, aviao->portao_alocado);
 
     aviao->estado = AGUARDANDO_DECOLAGEM;
     log_evento_ui(sim, aviao, LOG_SUCCESS, "Desembarque concluído - aguardando decolagem");
@@ -108,7 +109,7 @@ int desembarque_internacional_atomico(Aviao* aviao, SimulacaoAeroporto* sim) {
 int desembarque_domestico_atomico(Aviao* aviao, SimulacaoAeroporto* sim) {
     log_evento_ui(sim, aviao, LOG_INFO, "Iniciando desembarque doméstico (ATÔMICO)");
     
-    if (alocar_recursos_desembarque_atomico(sim, aviao) != 0) {
+    if (solicitar_recursos_com_espera(sim, aviao) != 0) {
         log_evento_ui(sim, aviao, LOG_ERROR, "FALHA: Não foi possível alocar recursos para desembarque");
         return 0;
     }
@@ -118,7 +119,8 @@ int desembarque_domestico_atomico(Aviao* aviao, SimulacaoAeroporto* sim) {
     
     sleep(2 + rand() % 3);
     
-    liberar_uso_torre(sim, aviao);
+    // Libera recursos corretamente via funções que atualizam o banqueiro
+    liberar_torre(sim, aviao->id);
     usleep(250000);
     liberar_portao(sim, aviao->id, aviao->portao_alocado);
 
@@ -132,17 +134,17 @@ int desembarque_domestico_atomico(Aviao* aviao, SimulacaoAeroporto* sim) {
 int decolagem_internacional_atomica(Aviao* aviao, SimulacaoAeroporto* sim) {
     log_evento_ui(sim, aviao, LOG_INFO, "Iniciando procedimento de decolagem internacional (ATÔMICO)");
     
-    if (alocar_recursos_decolagem_atomico(sim, aviao) != 0) {
+    if (solicitar_recursos_com_espera(sim, aviao) != 0) {
         log_evento_ui(sim, aviao, LOG_ERROR, "FALHA: Não foi possível alocar recursos para decolagem");
         return 0;
     }
     
     aviao->estado = DECOLANDO;
-    log_evento_ui(sim, aviao, LOG_SUCCESS, "DECOLANDO - Pista %d, Torre slot %d", aviao->pista_alocada, aviao->torre_alocada - 1);
+    log_evento_ui(sim, aviao, LOG_SUCCESS, "DECOLANDO - Pista %d, Torre qslot %d", aviao->pista_alocada, aviao->torre_alocada - 1);
     
     sleep(3 + rand() % 4); 
 
-    liberar_todos_recursos(sim, aviao->id);
+    liberar_todos_recursos(sim, aviao);
     
     aviao->estado = FINALIZADO_SUCESSO;
     log_evento_ui(sim, aviao, LOG_SUCCESS, "VOO FINALIZADO COM SUCESSO!");
@@ -153,7 +155,7 @@ int decolagem_internacional_atomica(Aviao* aviao, SimulacaoAeroporto* sim) {
 int decolagem_domestica_atomica(Aviao* aviao, SimulacaoAeroporto* sim) {
     log_evento_ui(sim, aviao, LOG_INFO, "Iniciando procedimento de decolagem doméstica (ATÔMICO)");
     
-    if (alocar_recursos_decolagem_atomico(sim, aviao) != 0) {
+    if (solicitar_recursos_com_espera(sim, aviao) != 0) {
         log_evento_ui(sim, aviao, LOG_ERROR, "FALHA: Não foi possível alocar recursos para decolagem");
         return 0;
     }
@@ -163,7 +165,7 @@ int decolagem_domestica_atomica(Aviao* aviao, SimulacaoAeroporto* sim) {
     
     sleep(2 + rand() % 3);
     
-    liberar_todos_recursos(sim, aviao->id);
+    liberar_todos_recursos(sim, aviao);
     
     aviao->estado = FINALIZADO_SUCESSO;
     log_evento_ui(sim, aviao, LOG_SUCCESS, "VOO FINALIZADO COM SUCESSO!");
@@ -269,6 +271,8 @@ void* criador_avioes(void* arg) {
             free(temp_aviao);
         }
         
+        banker_init_aviao(&sim->recursos, novo_aviao->id - 1);
+
         ThreadArgs* args = (ThreadArgs*)malloc(sizeof(ThreadArgs));
         if (!args) {
             perror("Falha ao alocar ThreadArgs");
