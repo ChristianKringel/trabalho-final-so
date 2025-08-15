@@ -23,10 +23,6 @@
 // Enum para tipos de voo
 typedef enum { VOO_DOMESTICO, VOO_INTERNACIONAL } TipoVoo;
 
-typedef enum {
-    UI_TEXTO,
-    UI_VISUAL
-} UIViewMode;
 // Enum para estados do aviao
 typedef enum {
     AGUARDANDO_POUSO,
@@ -123,7 +119,7 @@ typedef struct s_simulacao_aeroporto {
     time_t tempo_inicio;
     time_t tempo_pausado_total;    
     time_t inicio_pausa;           
-    UIViewMode modo_ui;
+    //UIViewMode modo_ui;
     bool pausado;
     pthread_cond_t cond_pausado;
     pthread_mutex_t mutex_pausado;

@@ -42,8 +42,7 @@ int pouso_internacional_atomico(Aviao* aviao, SimulacaoAeroporto* sim) {
     }
     
     aviao->estado = POUSANDO;
-    log_evento_ui(sim, aviao, LOG_SUCCESS, "POUSANDO - Pista %d, Torre slot %d", 
-                  aviao->pista_alocada, aviao->torre_alocada - 1);
+    log_evento_ui(sim, aviao, LOG_SUCCESS, "POUSANDO - Pista %d, Torre slot %d", aviao->pista_alocada, aviao->torre_alocada - 1);
     
     sleep(2 + rand() % 3);
     
@@ -312,7 +311,7 @@ void* criador_avioes(void* arg) {
         if (!sim->ativa) break;
         
         usleep((rand() % 2000 + 500) * 1000); // A cada 0.5-2.5 segundos
-
+        //usleep(100000);
         pthread_mutex_lock(&sim->mutex_simulacao);
 
         if (proximo_id > sim->max_avioes) {
