@@ -27,6 +27,11 @@ bool eh_minha_vez_na_fila(FilaPrioridade* fila, int aviao_id);
 void atualizar_prioridade_na_fila(FilaPrioridade* fila, int aviao_id, int nova_prioridade);
 void destruir_fila_prioridade(FilaPrioridade* fila);
 
+bool pode_acessar_recurso_hibrido(FilaPrioridade* fila, int aviao_id, int recursos_disponiveis);
+int obter_faixa_prioridade_maxima(FilaPrioridade* fila);
+int contar_avioes_alta_prioridade(FilaPrioridade* fila, int prioridade_corte);
+bool eh_elegivel_para_acesso_hibrido(FilaPrioridade* fila, int aviao_id, int recursos_disponiveis, int faixa_prioridade);
+
 int verificar_starvation(Aviao* aviao, time_t tempo_atual);
 int detectar_deadlock(SimulacaoAeroporto* sim);
 void atualizar_estado_aviao(Aviao* aviao, EstadoAviao novo_estado);
