@@ -180,7 +180,7 @@ int calcular_prioridade_dinamica(Aviao* aviao, time_t agora, SimulacaoAeroporto*
     if (aviao == NULL) return 0;
     
     // Prioridades base mais equilibradas
-    int prioridade_base = (aviao->tipo == VOO_INTERNACIONAL) ? 25 : 20;
+    int prioridade_base = (aviao->tipo == VOO_INTERNACIONAL) ? 25 : 15;
     int tempo_espera = 0;
     if (aviao->estado == AGUARDANDO_POUSO) {
         tempo_espera = sim ? calcular_tempo_espera_efetivo(sim, aviao->tempo_inicio_espera_ar) 
@@ -193,8 +193,6 @@ int calcular_prioridade_dinamica(Aviao* aviao, time_t agora, SimulacaoAeroporto*
     // AGING EXPONENCIAL - Prioridade aumenta drasticamente com o tempo
     int bonus_tempo = 0;
     if (tempo_espera >= 0) {
-        // Fórmula mais agressiva: tempo³ / 20 + tempo² / 5 + tempo * 8
-        // Isso cria uma curva muito íngreme para aviões esperando há muito tempo
         bonus_tempo = (tempo_espera * tempo_espera * tempo_espera) / 20 + 
                       (tempo_espera * tempo_espera) / 5 + 
                       tempo_espera * 8;

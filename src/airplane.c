@@ -59,8 +59,8 @@ int pouso_internacional_atomico(Aviao* aviao, SimulacaoAeroporto* sim) {
     // --- Operação de Pouso ---
     aviao->estado = POUSANDO;
     log_evento_ui(sim, aviao, LOG_SUCCESS, "POUSANDO - Pista %d, Torre slot %d", aviao->pista_alocada, aviao->torre_alocada - 1);
-    sleep(1 + rand() % 2);
-
+    //sleep(1 + rand() % 2);
+    usleep(1500000); // 1.5 segundos
     // --- Liberação de Recursos ---
     liberar_pista(sim, aviao->id, aviao->pista_alocada);
     liberar_torre(sim, aviao->id);
@@ -100,8 +100,8 @@ int pouso_domestico_atomico(Aviao* aviao, SimulacaoAeroporto* sim) {
     // --- Operação de Pouso ---
     aviao->estado = POUSANDO;
     log_evento_ui(sim, aviao, LOG_SUCCESS, "POUSANDO - Pista %d, Torre slot %d", aviao->pista_alocada, aviao->torre_alocada - 1);
-    sleep(1 + rand() % 2);
-
+    ///sleep(1 + rand() % 2);
+    usleep(1500000); // 1.5 segundos
     // --- Liberação de Recursos ---
     liberar_pista(sim, aviao->id, aviao->pista_alocada);
     liberar_torre(sim, aviao->id);
@@ -134,7 +134,8 @@ int desembarque_internacional_atomico(Aviao* aviao, SimulacaoAeroporto* sim) {
     // --- Operação de Desembarque ---
     aviao->estado = DESEMBARCANDO;
     log_evento_ui(sim, aviao, LOG_SUCCESS, "DESEMBARCANDO - Portão %d", aviao->portao_alocado);
-    sleep(1 + rand() % 2);
+    usleep(1500000); // 1.5 segundos
+    //sleep(1 + rand() % 2);
 
     // --- Liberação de Recursos ---
     liberar_torre(sim, aviao->id);
@@ -170,7 +171,8 @@ int desembarque_domestico_atomico(Aviao* aviao, SimulacaoAeroporto* sim) {
     // --- Operação de Desembarque ---
     aviao->estado = DESEMBARCANDO;
     log_evento_ui(sim, aviao, LOG_SUCCESS, "DESEMBARCANDO - Portão %d", aviao->portao_alocado);
-    sleep(1 + rand() % 2);
+    usleep(2000000); // 
+    //sleep(1 + rand() % 2);
 
     // --- Liberação de Recursos ---
     liberar_torre(sim, aviao->id);
@@ -217,8 +219,8 @@ int decolagem_internacional_atomica(Aviao* aviao, SimulacaoAeroporto* sim) {
     // --- Operação de Decolagem ---
     aviao->estado = DECOLANDO;
     log_evento_ui(sim, aviao, LOG_SUCCESS, "DECOLANDO - Pista %d, Portão %d, Torre slot %d", aviao->pista_alocada, aviao->portao_alocado, aviao->torre_alocada - 1);
-    sleep(1 + rand() % 2);
-
+    //sleep(1 + rand() % 2);
+    usleep(2000000); // 1.5 segundos
     // --- Liberação de Recursos ---
     liberar_portao(sim, aviao->id, aviao->portao_alocado);
     liberar_pista(sim, aviao->id, aviao->pista_alocada);
@@ -265,8 +267,8 @@ int decolagem_domestica_atomica(Aviao* aviao, SimulacaoAeroporto* sim) {
     // --- Operação de Decolagem ---
     aviao->estado = DECOLANDO;
     log_evento_ui(sim, aviao, LOG_SUCCESS, "DECOLANDO - Pista %d, Portão %d, Torre slot %d", aviao->pista_alocada, aviao->portao_alocado, aviao->torre_alocada - 1);
-    sleep(1 + rand() % 2);
-
+    //sleep(1 + rand() % 2);
+    usleep(1500000); // 1.5 segundos
     // --- Liberação de Recursos ---
     liberar_portao(sim, aviao->id, aviao->portao_alocado);
     liberar_pista(sim, aviao->id, aviao->pista_alocada);
@@ -355,9 +357,9 @@ void* criador_avioes(void* arg) {
         verificar_pausa(sim);
         
         if (!sim->ativa) break;
-        usleep(1000000 + (rand() % 2750001)); // 2.0 - 3.5
+        //usleep(1250000 + (rand() % 2750001)); // 
 
-        //usleep(1000000 + (rand() % 2500000)); // 1 - 3 segundos
+        usleep(1000000 + (rand() % 2500000)); // 1 - 3 segundos
 
 
         //usleep((rand() % 3000 + 500) * 1000); // A cada 0.5-3.5 segundos
