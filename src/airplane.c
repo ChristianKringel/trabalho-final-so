@@ -355,7 +355,7 @@ void* criador_avioes(void* arg) {
         verificar_pausa(sim);
         
         if (!sim->ativa) break;
-        usleep(2000000 + (rand() % 2500001)); // 2.0 - 3.5
+        usleep(1000000 + (rand() % 2750001)); // 2.0 - 3.5
 
         //usleep(1000000 + (rand() % 2500000)); // 1 - 3 segundos
 

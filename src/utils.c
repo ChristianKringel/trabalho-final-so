@@ -982,7 +982,7 @@ int banker_request_single_resource(SimulacaoAeroporto* sim, Aviao* aviao, TipoRe
     return solicitar_recurso_individual(sim, aviao, tipo_recurso);
 }
 
-void banker_release_resources(RecursosAeroporto* recursos, int aviao_id, int release[]) {
+int banker_release_resources(RecursosAeroporto* recursos, int aviao_id, int release[]) {
     if (aviao_id < 0 || aviao_id >= MAX_AVIOES) {
         return; // ID inválido
     }
@@ -991,7 +991,7 @@ void banker_release_resources(RecursosAeroporto* recursos, int aviao_id, int rel
     for (int i = 0; i < N_RESOURCES; i++) {
         if (release[i] < 0 || release[i] > recursos->banco.alocacao[aviao_id][i]) {
 
-            return; // Release inválido
+            return -1; // Release inválido
         }
     }
     
@@ -1015,6 +1015,7 @@ void banker_release_resources(RecursosAeroporto* recursos, int aviao_id, int rel
     
     // 4. Sinalizar também o condition variable geral do banco
     pthread_cond_broadcast(&recursos->cond_banco);
+    return 0;
 }
 
 void definir_necessidade_operacao(EstadoAviao operacao, int necessidade[N_RESOURCES]) {

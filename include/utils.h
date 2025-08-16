@@ -54,8 +54,8 @@ void verificar_recursos_orfaos(SimulacaoAeroporto* sim);
 bool verificar_avioes_em_alerta(SimulacaoAeroporto* sim);
 
 bool is_safe_state(Banqueiro* banco);
-void banker_request_resources(RecursosAeroporto* recursos, int aviao_id, int request[]);
-void banker_release_resources(RecursosAeroporto* recursos, int aviao_id, int release[]);
+int banker_request_resources(RecursosAeroporto* recursos, int aviao_id, int request[]);
+int banker_release_resources(RecursosAeroporto* recursos, int aviao_id, int release[]);
 void definir_necessidade_operacao(EstadoAviao operacao, int necessidade[N_RESOURCES]);
 void banker_init_aviao(RecursosAeroporto* recursos, int aviao_id);
 
