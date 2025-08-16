@@ -11,7 +11,7 @@ static void format_file_timestamp(char* timestamp, size_t size) {
 }
 
 void write_to_log_file(SimulacaoAeroporto* sim, Aviao* aviao, const char* buffer) {
-    FILE* arquivo_log = fopen("simulacao_log.txt", "w+");
+    FILE* arquivo_log = fopen("simulacao_log.txt", "a");
 
     if (!arquivo_log) return;
 

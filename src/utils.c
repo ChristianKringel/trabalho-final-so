@@ -345,7 +345,6 @@ void verificar_recursos_orfaos(SimulacaoAeroporto* sim) {
     
     RecursosAeroporto* recursos = &sim->recursos;
     
-    // Verifica torres órfãs com mais agressividade
     if (recursos->slots_torre_disponiveis > 0 && recursos->fila_torres.tamanho > 0) {
         pthread_mutex_lock(&recursos->mutex_torres);
         if (recursos->slots_torre_disponiveis > 0 && recursos->fila_torres.tamanho > 0) {
@@ -367,7 +366,7 @@ void verificar_recursos_orfaos(SimulacaoAeroporto* sim) {
     if (recursos->pistas_disponiveis > 0 && recursos->fila_pistas.tamanho > 0) {
         pthread_mutex_lock(&recursos->mutex_pistas);
         if (recursos->pistas_disponiveis > 0 && recursos->fila_pistas.tamanho > 0) {
-            for (int i = 0; i < 2; i++) {
+            for (int i = 0; i < 3; i++) {
                 pthread_cond_broadcast(&recursos->cond_pistas);
                 pthread_mutex_unlock(&recursos->mutex_pistas);
                 usleep(500);
@@ -381,7 +380,7 @@ void verificar_recursos_orfaos(SimulacaoAeroporto* sim) {
     if (recursos->portoes_disponiveis > 0 && recursos->fila_portoes.tamanho > 0) {
         pthread_mutex_lock(&recursos->mutex_portoes);
         if (recursos->portoes_disponiveis > 0 && recursos->fila_portoes.tamanho > 0) {
-            for (int i = 0; i < 2; i++) {
+            for (int i = 0; i < 3; i++) {
                 pthread_cond_broadcast(&recursos->cond_portoes);
                 pthread_mutex_unlock(&recursos->mutex_portoes);
                 usleep(500);
@@ -655,50 +654,50 @@ int gerar_numero_aleatorio(int min, int max) {
     return rand() % (max - min + 1) + min;
 }
 
-void dormir_operacao(int min_ms, int max_ms) {
-    if (min_ms < 0 || max_ms < min_ms) {
-        return; 
-    }
+// void dormir_operacao(int min_ms, int max_ms) {
+//     if (min_ms < 0 || max_ms < min_ms) {
+//         return; 
+//     }
 
-    int tempo = gerar_numero_aleatorio(min_ms, max_ms);
-    usleep(tempo * 1000); // Converte milissegundos para microssegundos
-}
+//     int tempo = gerar_numero_aleatorio(min_ms, max_ms);
+//     usleep(tempo * 1000); // Converte milissegundos para microssegundos
+// }
 
-// New pause-aware sleep function
-void dormir_operacao_com_pausa(SimulacaoAeroporto* sim, int min_ms, int max_ms) {
-    if (min_ms < 0 || max_ms < min_ms || !sim) {
-        return; 
-    }
+// // New pause-aware sleep function
+// void dormir_operacao_com_pausa(SimulacaoAeroporto* sim, int min_ms, int max_ms) {
+//     if (min_ms < 0 || max_ms < min_ms || !sim) {
+//         return; 
+//     }
 
-    int tempo = gerar_numero_aleatorio(min_ms, max_ms);
-    int sleep_chunks = tempo / 100; // Break sleep into 100ms chunks
-    int remaining_ms = tempo % 100;
+//     int tempo = gerar_numero_aleatorio(min_ms, max_ms);
+//     int sleep_chunks = tempo / 100; // Break sleep into 100ms chunks
+//     int remaining_ms = tempo % 100;
     
-    for (int i = 0; i < sleep_chunks && sim->ativa; i++) {
-        // Check for pause before each chunk
-        pthread_mutex_lock(&sim->mutex_pausado);
-        while (sim->pausado && sim->ativa) {
-            pthread_cond_wait(&sim->cond_pausado, &sim->mutex_pausado);
-        }
-        pthread_mutex_unlock(&sim->mutex_pausado);
+//     for (int i = 0; i < sleep_chunks && sim->ativa; i++) {
+//         // Check for pause before each chunk
+//         pthread_mutex_lock(&sim->mutex_pausado);
+//         while (sim->pausado && sim->ativa) {
+//             pthread_cond_wait(&sim->cond_pausado, &sim->mutex_pausado);
+//         }
+//         pthread_mutex_unlock(&sim->mutex_pausado);
         
-        if (!sim->ativa) break;
-        usleep(100 * 1000); // 100ms
-    }
+//         if (!sim->ativa) break;
+//         usleep(100 * 1000); // 100ms
+//     }
     
-    // Sleep remaining time if any
-    if (remaining_ms > 0 && sim->ativa) {
-        pthread_mutex_lock(&sim->mutex_pausado);
-        while (sim->pausado && sim->ativa) {
-            pthread_cond_wait(&sim->cond_pausado, &sim->mutex_pausado);
-        }
-        pthread_mutex_unlock(&sim->mutex_pausado);
+//     // Sleep remaining time if any
+//     if (remaining_ms > 0 && sim->ativa) {
+//         pthread_mutex_lock(&sim->mutex_pausado);
+//         while (sim->pausado && sim->ativa) {
+//             pthread_cond_wait(&sim->cond_pausado, &sim->mutex_pausado);
+//         }
+//         pthread_mutex_unlock(&sim->mutex_pausado);
         
-        if (sim->ativa) {
-            usleep(remaining_ms * 1000);
-        }
-    }
-}
+//         if (sim->ativa) {
+//             usleep(remaining_ms * 1000);
+//         }
+//     }
+// }
 
 void verificar_pausa(SimulacaoAeroporto* sim) {
     pthread_mutex_lock(&sim->mutex_pausado);
@@ -876,61 +875,96 @@ bool is_safe_state(Banqueiro* banco) {
 }
 
 int banker_request_resources(RecursosAeroporto* recursos, int aviao_id, int request[]) {
-    if (aviao_id < 0 || aviao_id >= MAX_AVIOES) {
-        return -1; // ID inválido
-    }
+    if (aviao_id < 0 || aviao_id >= MAX_AVIOES) { return -1; }
     
-    // CORREÇÃO: converter para ID original uma única vez
     int aviao_id_original = aviao_id + 1;
     
     // 1. Verificar se o pedido é válido
     for (int i = 0; i < N_RESOURCES; i++) {
         if (request[i] < 0 || request[i] > recursos->banco.necessidade[aviao_id][i]) {
-            log_evento_ui(NULL, NULL, LOG_ERROR, "Banco: Pedido inválido do avião %d para recurso %d", aviao_id, i);
-            return -2; // Pedido inválido
+            return -2;
         }
     }
     
-    // 1.5. Verificar filas de prioridade para recursos solicitados
-    // Se o avião solicita um recurso, ele deve estar na frente da fila correspondente
-    // CORREÇÃO: usar aviao_id + 1 porque as filas usam IDs originais (não decrementados)
+    // 2. Verificar filas de prioridade
     if (request[RECURSO_PISTA] > 0 && !eh_minha_vez_na_fila(&recursos->fila_pistas, aviao_id_original)) {
-        return -5; // Não é sua vez na fila de pistas
+        return -5;
     }
     if (request[RECURSO_PORTAO] > 0 && !eh_minha_vez_na_fila(&recursos->fila_portoes, aviao_id_original)) {
-        return -6; // Não é sua vez na fila de portões
+        return -6;
     }
     if (request[RECURSO_TORRE] > 0 && !eh_minha_vez_na_fila(&recursos->fila_torres, aviao_id_original)) {
-        return -7; // Não é sua vez na fila de torres
+        return -7;
     }
     
-    // 2. Verificar se os recursos estão disponíveis
-    for (int i = 0; i < N_RESOURCES; i++) {
-        if (request[i] > recursos->banco.disponivel[i]) {
-            return -3; // Recursos insuficientes
-        }
+    // 3. Verificar disponibilidade física ANTES da simulação
+    if (request[RECURSO_PISTA] > 0 && recursos->pistas_disponiveis == 0) {
+        return -3;
+    }
+    if (request[RECURSO_PORTAO] > 0 && recursos->portoes_disponiveis == 0) {
+        return -3;
+    }
+    if (request[RECURSO_TORRE] > 0 && recursos->slots_torre_disponiveis == 0) {
+        return -3;
     }
     
-    // 3. Simular alocação temporária
+    // 4. Simular alocação temporária
     for (int i = 0; i < N_RESOURCES; i++) {
         recursos->banco.disponivel[i] -= request[i];
         recursos->banco.alocacao[aviao_id][i] += request[i];
         recursos->banco.necessidade[aviao_id][i] -= request[i];
     }
     
-    // 4. Verificar se o estado permanece seguro
+    // 5. Verificar se o estado permanece seguro
     if (!is_safe_state(&recursos->banco)) {
-        // Reverter alocação temporária
+        // Reverter simulação
         for (int i = 0; i < N_RESOURCES; i++) {
             recursos->banco.disponivel[i] += request[i];
             recursos->banco.alocacao[aviao_id][i] -= request[i];
             recursos->banco.necessidade[aviao_id][i] += request[i];
         }
-        return -4; // Estado inseguro após alocação
+        return -4;
     }
     
-    // 5. Remover o avião das filas de prioridade dos recursos alocados
-    // CORREÇÃO: usar aviao_id_original porque as filas usam IDs originais (não decrementados)
+    // 6. ALOCAÇÃO FÍSICA (fazer aqui, não depois)
+    if (request[RECURSO_PISTA] > 0) {
+        pthread_mutex_lock(&recursos->mutex_pistas);
+        for (int i = 0; i < recursos->total_pistas; i++) {
+            if (recursos->pista_ocupada_por[i] == -1) {
+                recursos->pista_ocupada_por[i] = aviao_id_original;
+                recursos->pistas_disponiveis--;
+                break;
+            }
+        }
+        pthread_mutex_unlock(&recursos->mutex_pistas);
+    }
+    
+    if (request[RECURSO_PORTAO] > 0) {
+        pthread_mutex_lock(&recursos->mutex_portoes);
+        for (int i = 0; i < recursos->total_portoes; i++) {
+            if (recursos->portao_ocupado_por[i] == -1) {
+                recursos->portao_ocupado_por[i] = aviao_id_original;
+                recursos->portoes_disponiveis--;
+                break;
+            }
+        }
+        pthread_mutex_unlock(&recursos->mutex_portoes);
+    }
+    
+    if (request[RECURSO_TORRE] > 0) {
+        pthread_mutex_lock(&recursos->mutex_torres);
+        for (int i = 0; i < recursos->capacidade_torre; i++) {
+            if (recursos->torre_ocupada_por[i] == -1) {
+                recursos->torre_ocupada_por[i] = aviao_id_original;
+                recursos->slots_torre_disponiveis--;
+                recursos->operacoes_ativas_torre++;
+                break;
+            }
+        }
+        pthread_mutex_unlock(&recursos->mutex_torres);
+    }
+    
+    // 7. Remover das filas
     if (request[RECURSO_PISTA] > 0) {
         remover_da_fila_prioridade(&recursos->fila_pistas, aviao_id_original);
     }
@@ -941,7 +975,11 @@ int banker_request_resources(RecursosAeroporto* recursos, int aviao_id, int requ
         remover_da_fila_prioridade(&recursos->fila_torres, aviao_id_original);
     }
 
-    return 0; // Pedido atendido com sucesso
+    return 0; // Sucesso
+}
+
+int banker_request_single_resource(SimulacaoAeroporto* sim, Aviao* aviao, TipoRecurso tipo_recurso) {
+    return solicitar_recurso_individual(sim, aviao, tipo_recurso);
 }
 
 void banker_release_resources(RecursosAeroporto* recursos, int aviao_id, int release[]) {
@@ -980,7 +1018,6 @@ void banker_release_resources(RecursosAeroporto* recursos, int aviao_id, int rel
 }
 
 void definir_necessidade_operacao(EstadoAviao operacao, int necessidade[N_RESOURCES]) {
-    // Zerar array
     for (int i = 0; i < N_RESOURCES; i++) {
         necessidade[i] = 0;
     }
@@ -998,12 +1035,11 @@ void definir_necessidade_operacao(EstadoAviao operacao, int necessidade[N_RESOUR
             
         case AGUARDANDO_DECOLAGEM:
             necessidade[RECURSO_PISTA] = 1;
-            necessidade[RECURSO_PORTAO] = 0;
+            necessidade[RECURSO_PORTAO] = 1;
             necessidade[RECURSO_TORRE] = 1;
             break;
             
         default:
-            // Não precisa de recursos
             break;
     }
 }

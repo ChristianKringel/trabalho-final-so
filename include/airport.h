@@ -16,6 +16,7 @@ int solicitar_torre(SimulacaoAeroporto* sim, int id_aviao, TipoVoo tipo);
 int solicitar_torre_com_prioridade(SimulacaoAeroporto* sim, Aviao* aviao);
 void liberar_torre(SimulacaoAeroporto* sim, int id_aviao);
 
+
 // =============== FUNÇÕES AUXILIARES PARA USO DA TORRE ===============
 int solicitar_uso_torre(SimulacaoAeroporto* sim, Aviao* aviao);
 void liberar_uso_torre(SimulacaoAeroporto* sim, Aviao* aviao);
@@ -25,4 +26,5 @@ void liberar_todos_recursos(SimulacaoAeroporto* sim, Aviao* aviao);
 
 int solicitar_recursos_com_espera(SimulacaoAeroporto* sim, Aviao* aviao);
 
+banker_request_single_resource(SimulacaoAeroporto* sim, Aviao* aviao, TipoRecurso tipo_recurso);
 #endif
