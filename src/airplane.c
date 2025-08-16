@@ -134,7 +134,7 @@ int desembarque_internacional_atomico(Aviao* aviao, SimulacaoAeroporto* sim) {
     // --- Operação de Desembarque ---
     aviao->estado = DESEMBARCANDO;
     log_evento_ui(sim, aviao, LOG_SUCCESS, "DESEMBARCANDO - Portão %d", aviao->portao_alocado);
-    sleep(3 + rand() % 2);
+    sleep(1 + rand() % 2);
 
     // --- Liberação de Recursos ---
     liberar_torre(sim, aviao->id);
@@ -170,7 +170,7 @@ int desembarque_domestico_atomico(Aviao* aviao, SimulacaoAeroporto* sim) {
     // --- Operação de Desembarque ---
     aviao->estado = DESEMBARCANDO;
     log_evento_ui(sim, aviao, LOG_SUCCESS, "DESEMBARCANDO - Portão %d", aviao->portao_alocado);
-    sleep(3 + rand() % 2);
+    sleep(1 + rand() % 2);
 
     // --- Liberação de Recursos ---
     liberar_torre(sim, aviao->id);
@@ -355,7 +355,7 @@ void* criador_avioes(void* arg) {
         verificar_pausa(sim);
         
         if (!sim->ativa) break;
-        usleep(2000000 + (rand() % 2000001)); // 2.0 - 4.0
+        usleep(2000000 + (rand() % 2500001)); // 2.0 - 3.5
 
         //usleep(1000000 + (rand() % 2500000)); // 1 - 3 segundos
 
