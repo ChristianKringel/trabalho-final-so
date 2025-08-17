@@ -652,51 +652,6 @@ int gerar_numero_aleatorio(int min, int max) {
     return rand() % (max - min + 1) + min;
 }
 
-// void dormir_operacao(int min_ms, int max_ms) {
-//     if (min_ms < 0 || max_ms < min_ms) {
-//         return; 
-//     }
-
-//     int tempo = gerar_numero_aleatorio(min_ms, max_ms);
-//     usleep(tempo * 1000); // Converte milissegundos para microssegundos
-// }
-
-// // New pause-aware sleep function
-// void dormir_operacao_com_pausa(SimulacaoAeroporto* sim, int min_ms, int max_ms) {
-//     if (min_ms < 0 || max_ms < min_ms || !sim) {
-//         return; 
-//     }
-
-//     int tempo = gerar_numero_aleatorio(min_ms, max_ms);
-//     int sleep_chunks = tempo / 100; // Break sleep into 100ms chunks
-//     int remaining_ms = tempo % 100;
-    
-//     for (int i = 0; i < sleep_chunks && sim->ativa; i++) {
-//         // Check for pause before each chunk
-//         pthread_mutex_lock(&sim->mutex_pausado);
-//         while (sim->pausado && sim->ativa) {
-//             pthread_cond_wait(&sim->cond_pausado, &sim->mutex_pausado);
-//         }
-//         pthread_mutex_unlock(&sim->mutex_pausado);
-        
-//         if (!sim->ativa) break;
-//         usleep(100 * 1000); // 100ms
-//     }
-    
-//     // Sleep remaining time if any
-//     if (remaining_ms > 0 && sim->ativa) {
-//         pthread_mutex_lock(&sim->mutex_pausado);
-//         while (sim->pausado && sim->ativa) {
-//             pthread_cond_wait(&sim->cond_pausado, &sim->mutex_pausado);
-//         }
-//         pthread_mutex_unlock(&sim->mutex_pausado);
-        
-//         if (sim->ativa) {
-//             usleep(remaining_ms * 1000);
-//         }
-//     }
-// }
-
 void verificar_pausa(SimulacaoAeroporto* sim) {
     pthread_mutex_lock(&sim->mutex_pausado);
     while (sim->pausado && sim->ativa) {

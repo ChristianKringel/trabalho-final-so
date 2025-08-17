@@ -40,16 +40,6 @@ void incrementar_aviao_sucesso(MetricasSimulacao* metricas) {
     pthread_mutex_unlock(&metricas->mutex_metricas);
 }
 
-void incrementar_aviao_starvation(MetricasSimulacao* metricas) {
-    if (metricas == NULL) {
-        return; 
-    }
-    
-    pthread_mutex_lock(&metricas->mutex_metricas);
-    metricas->avioes_falha_starvation++;
-    pthread_mutex_unlock(&metricas->mutex_metricas);
-}
-
 void incrementar_aviao_falha_starvation(MetricasSimulacao* metricas) {
     if (metricas == NULL) {
         return; 
