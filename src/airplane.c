@@ -239,7 +239,7 @@ int decolagem_domestica_atomica(Aviao* aviao, SimulacaoAeroporto* sim) {
     liberar_portao(sim, aviao->id, aviao->portao_alocado);
     liberar_pista(sim, aviao->id, aviao->pista_alocada);
     liberar_torre(sim, aviao->id);
-
+    
     aviao->estado = FINALIZADO_SUCESSO;
     log_evento_ui(sim, aviao, LOG_SUCCESS, "VOO FINALIZADO COM SUCESSO!");
     return 1;
@@ -257,12 +257,10 @@ void* thread_aviao(void* arg) {
         sucesso = pouso_domestico_atomico(aviao, sim);
     }
     
-    // --- SUBSTITUA O BLOCO DE SACRIFÍCIO AQUI ---
     if (sucesso == -99) {
         atualizar_estado_aviao(sim, aviao, FALHA_DEADLOCK);
         incrementar_aviao_deadlock(&sim->metricas);
-        
-        // Libera os recursos que porventura já possuía
+    
         if (aviao->pista_alocada != -1) liberar_pista(sim, aviao->id, aviao->pista_alocada);
         if (aviao->portao_alocado != -1) liberar_portao(sim, aviao->id, aviao->portao_alocado);
         if (aviao->torre_alocada > 0) liberar_torre(sim, aviao->id);
@@ -270,16 +268,18 @@ void* thread_aviao(void* arg) {
         free(args);
         return NULL;
     }
-    if (!sucesso) { /* ... */ }
+    if (!sucesso){
+        log_evento_ui(sim, aviao, LOG_WARNING, "ABORTOU na fase de pouso.");
+        free(args);
+        return NULL;
+    }
 
-    // ... (lógica de desembarque) ...
     if (aviao->tipo == VOO_INTERNACIONAL) {
         sucesso = desembarque_internacional_atomico(aviao, sim);
     } else {
         sucesso = desembarque_domestico_atomico(aviao, sim);
     }
-
-    // --- E AQUI TAMBÉM ---
+    
     if (sucesso == -99) {
         atualizar_estado_aviao(sim, aviao, FALHA_DEADLOCK);
         incrementar_aviao_deadlock(&sim->metricas);
@@ -291,16 +291,18 @@ void* thread_aviao(void* arg) {
         free(args);
         return NULL;
     }
-    if (!sucesso) { /* ... */ }
+    if (!sucesso){
+        log_evento_ui(sim, aviao, LOG_WARNING, "ABORTOU na fase de desembarque.");
+        free(args);
+        return NULL;
+    }
 
-    // ... (lógica de decolagem) ...
     if (aviao->tipo == VOO_INTERNACIONAL) {
         sucesso = decolagem_internacional_atomica(aviao, sim);
     } else {
         sucesso = decolagem_domestica_atomica(aviao, sim);
     }
     
-    // --- E AQUI FINALMENTE ---
     if (sucesso == -99) {
         atualizar_estado_aviao(sim, aviao, FALHA_DEADLOCK);
         incrementar_aviao_deadlock(&sim->metricas);
@@ -336,7 +338,7 @@ void* criador_avioes(void* arg) {
         
         if (!sim->ativa) break;
 
-        usleep(1000000 + (rand() % 2000000)); // 1 - 3 segundos
+        usleep(2000000 + (rand() % 250000)); // 2 - 4.5 segundos
 
         pthread_mutex_lock(&sim->mutex_simulacao);
 
