@@ -247,76 +247,46 @@ int decolagem_domestica_atomica(Aviao* aviao, SimulacaoAeroporto* sim) {
 
 void* thread_aviao(void* arg) {
     ThreadArgs* args = (ThreadArgs*)arg;
+    
+    if (!args || !args->aviao || !args->sim) {
+        if (args) free(args);
+        return NULL;
+    }
+    
     Aviao* aviao = args->aviao;
     SimulacaoAeroporto* sim = args->sim;
     int sucesso = 0;
 
+    // Fase 1: Pouso
     if (aviao->tipo == VOO_INTERNACIONAL) {
         sucesso = pouso_internacional_atomico(aviao, sim);
     } else {
         sucesso = pouso_domestico_atomico(aviao, sim);
     }
     
-    if (sucesso == -99) {
-        atualizar_estado_aviao(sim, aviao, FALHA_DEADLOCK);
-        incrementar_aviao_deadlock(&sim->metricas);
-    
-        if (aviao->pista_alocada != -1) liberar_pista(sim, aviao->id, aviao->pista_alocada);
-        if (aviao->portao_alocado != -1) liberar_portao(sim, aviao->id, aviao->portao_alocado);
-        if (aviao->torre_alocada > 0) liberar_torre(sim, aviao->id);
-        
-        free(args);
-        return NULL;
-    }
-    if (!sucesso){
-        log_evento_ui(sim, aviao, LOG_WARNING, "ABORTOU na fase de pouso.");
-        free(args);
+    if (tratar_deadlock_e_falhas(aviao, sim, args, sucesso, "pouso") != 0) {
         return NULL;
     }
 
+    // Fase 2: Desembarque
     if (aviao->tipo == VOO_INTERNACIONAL) {
         sucesso = desembarque_internacional_atomico(aviao, sim);
     } else {
         sucesso = desembarque_domestico_atomico(aviao, sim);
     }
-    
-    if (sucesso == -99) {
-        atualizar_estado_aviao(sim, aviao, FALHA_DEADLOCK);
-        incrementar_aviao_deadlock(&sim->metricas);
 
-        if (aviao->pista_alocada != -1) liberar_pista(sim, aviao->id, aviao->pista_alocada);
-        if (aviao->portao_alocado != -1) liberar_portao(sim, aviao->id, aviao->portao_alocado);
-        if (aviao->torre_alocada > 0) liberar_torre(sim, aviao->id);
-
-        free(args);
-        return NULL;
-    }
-    if (!sucesso){
-        log_evento_ui(sim, aviao, LOG_WARNING, "ABORTOU na fase de desembarque.");
-        free(args);
+    if (tratar_deadlock_e_falhas(aviao, sim, args, sucesso, "desembarque") != 0) {
         return NULL;
     }
 
+    // Fase 3: Decolagem
     if (aviao->tipo == VOO_INTERNACIONAL) {
         sucesso = decolagem_internacional_atomica(aviao, sim);
     } else {
         sucesso = decolagem_domestica_atomica(aviao, sim);
     }
     
-    if (sucesso == -99) {
-        atualizar_estado_aviao(sim, aviao, FALHA_DEADLOCK);
-        incrementar_aviao_deadlock(&sim->metricas);
-
-        if (aviao->pista_alocada != -1) liberar_pista(sim, aviao->id, aviao->pista_alocada);
-        if (aviao->portao_alocado != -1) liberar_portao(sim, aviao->id, aviao->portao_alocado);
-        if (aviao->torre_alocada > 0) liberar_torre(sim, aviao->id);
-
-        free(args);
-        return NULL;
-    }
-    if (!sucesso) {
-        log_evento_ui(sim, aviao, LOG_WARNING, "ABORTOU na fase de decolagem.");
-        free(args);
+    if (tratar_deadlock_e_falhas(aviao, sim, args, sucesso, "decolagem") != 0) {
         return NULL;
     }
 
