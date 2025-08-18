@@ -38,7 +38,7 @@ int pouso_internacional_atomico(Aviao* aviao, SimulacaoAeroporto* sim) {
     }
 
     log_evento_ui(sim, aviao, LOG_INFO, "Solicitando PISTA...");
-    if (banker_request_single_resource(sim, aviao, RECURSO_PISTA) != 0) {
+    if (solicitar_recurso_individual(sim, aviao, RECURSO_PISTA) != 0) {
         log_evento_ui(sim, aviao, LOG_ERROR, "FALHA ao alocar PISTA para pouso.");
         return 0;
     }
@@ -46,7 +46,7 @@ int pouso_internacional_atomico(Aviao* aviao, SimulacaoAeroporto* sim) {
     log_evento_ui(sim, aviao, LOG_SUCCESS, "Pista %d alocada.", aviao->pista_alocada);
 
     log_evento_ui(sim, aviao, LOG_INFO, "Solicitando TORRE...");
-    if (banker_request_single_resource(sim, aviao, RECURSO_TORRE) != 0) {
+    if (solicitar_recurso_individual(sim, aviao, RECURSO_TORRE) != 0) {
         log_evento_ui(sim, aviao, LOG_ERROR, "FALHA ao alocar TORRE. Liberando pista...");
         liberar_pista(sim, aviao->id, aviao->pista_alocada);
         return 0;
@@ -75,7 +75,7 @@ int pouso_domestico_atomico(Aviao* aviao, SimulacaoAeroporto* sim) {
     }
 
     log_evento_ui(sim, aviao, LOG_INFO, "Solicitando TORRE...");
-    if (banker_request_single_resource(sim, aviao, RECURSO_TORRE) != 0) {
+    if (solicitar_recurso_individual(sim, aviao, RECURSO_TORRE) != 0) {
         log_evento_ui(sim, aviao, LOG_ERROR, "FALHA ao alocar TORRE para pouso.");
         return 0;
     }
@@ -83,7 +83,7 @@ int pouso_domestico_atomico(Aviao* aviao, SimulacaoAeroporto* sim) {
     log_evento_ui(sim, aviao, LOG_SUCCESS, "Torre (slot %d) alocada.", aviao->torre_alocada - 1);
 
     log_evento_ui(sim, aviao, LOG_INFO, "Solicitando PISTA...");
-    if (banker_request_single_resource(sim, aviao, RECURSO_PISTA) != 0) {
+    if (solicitar_recurso_individual(sim, aviao, RECURSO_PISTA) != 0) {
         log_evento_ui(sim, aviao, LOG_ERROR, "FALHA ao alocar PISTA. Liberando torre...");
         liberar_torre(sim, aviao->id);
         return 0;
@@ -107,14 +107,14 @@ int desembarque_internacional_atomico(Aviao* aviao, SimulacaoAeroporto* sim) {
     log_evento_ui(sim, aviao, LOG_INFO, "Iniciando desembarque internacional (SEQUENCIAL)");
 
     log_evento_ui(sim, aviao, LOG_INFO, "Solicitando PORTÃO...");
-    if (banker_request_single_resource(sim, aviao, RECURSO_PORTAO) != 0) {
+    if (solicitar_recurso_individual(sim, aviao, RECURSO_PORTAO) != 0) {
         log_evento_ui(sim, aviao, LOG_ERROR, "FALHA ao alocar PORTÃO para desembarque.");
         return 0;
     }
     log_evento_ui(sim, aviao, LOG_SUCCESS, "Portão %d alocado.", aviao->portao_alocado);
 
     log_evento_ui(sim, aviao, LOG_INFO, "Solicitando TORRE...");
-    if (banker_request_single_resource(sim, aviao, RECURSO_TORRE) != 0) {
+    if (solicitar_recurso_individual(sim, aviao, RECURSO_TORRE) != 0) {
         log_evento_ui(sim, aviao, LOG_ERROR, "FALHA ao alocar TORRE. Liberando portão...");
         liberar_portao(sim, aviao->id, aviao->portao_alocado);
         return 0;
@@ -137,14 +137,14 @@ int desembarque_domestico_atomico(Aviao* aviao, SimulacaoAeroporto* sim) {
     log_evento_ui(sim, aviao, LOG_INFO, "Iniciando desembarque doméstico (SEQUENCIAL)");
 
     log_evento_ui(sim, aviao, LOG_INFO, "Solicitando TORRE...");
-    if (banker_request_single_resource(sim, aviao, RECURSO_TORRE) != 0) {
+    if (solicitar_recurso_individual(sim, aviao, RECURSO_TORRE) != 0) {
         log_evento_ui(sim, aviao, LOG_ERROR, "FALHA ao alocar TORRE para desembarque.");
         return 0;
     }
     log_evento_ui(sim, aviao, LOG_SUCCESS, "Torre (slot %d) alocada.", aviao->torre_alocada - 1);
 
     log_evento_ui(sim, aviao, LOG_INFO, "Solicitando PORTÃO...");
-    if (banker_request_single_resource(sim, aviao, RECURSO_PORTAO) != 0) {
+    if (solicitar_recurso_individual(sim, aviao, RECURSO_PORTAO) != 0) {
         log_evento_ui(sim, aviao, LOG_ERROR, "FALHA ao alocar PORTÃO. Liberando torre...");
         liberar_torre(sim, aviao->id);
         return 0;
@@ -168,14 +168,14 @@ int decolagem_internacional_atomica(Aviao* aviao, SimulacaoAeroporto* sim) {
     log_evento_ui(sim, aviao, LOG_INFO, "Iniciando decolagem internacional (SEQUENCIAL)");
 
     log_evento_ui(sim, aviao, LOG_INFO, "Solicitando PORTÃO...");
-    if (banker_request_single_resource(sim, aviao, RECURSO_PORTAO) != 0) {
+    if (solicitar_recurso_individual(sim, aviao, RECURSO_PORTAO) != 0) {
         log_evento_ui(sim, aviao, LOG_ERROR, "FALHA ao alocar PORTÃO para decolagem.");
         return 0;
     }
     log_evento_ui(sim, aviao, LOG_SUCCESS, "Portão %d alocado.", aviao->portao_alocado);
 
     log_evento_ui(sim, aviao, LOG_INFO, "Solicitando PISTA...");
-    if (banker_request_single_resource(sim, aviao, RECURSO_PISTA) != 0) {
+    if (solicitar_recurso_individual(sim, aviao, RECURSO_PISTA) != 0) {
         log_evento_ui(sim, aviao, LOG_ERROR, "FALHA ao alocar PISTA. Liberando portão...");
         liberar_portao(sim, aviao->id, aviao->portao_alocado);
         return 0;
@@ -183,7 +183,7 @@ int decolagem_internacional_atomica(Aviao* aviao, SimulacaoAeroporto* sim) {
     log_evento_ui(sim, aviao, LOG_SUCCESS, "Pista %d alocada.", aviao->pista_alocada);
 
     log_evento_ui(sim, aviao, LOG_INFO, "Solicitando TORRE...");
-    if (banker_request_single_resource(sim, aviao, RECURSO_TORRE) != 0) {
+    if (solicitar_recurso_individual(sim, aviao, RECURSO_TORRE) != 0) {
         log_evento_ui(sim, aviao, LOG_ERROR, "FALHA ao alocar TORRE. Liberando pista e portão...");
         liberar_pista(sim, aviao->id, aviao->pista_alocada);
         liberar_portao(sim, aviao->id, aviao->portao_alocado);
@@ -209,14 +209,14 @@ int decolagem_domestica_atomica(Aviao* aviao, SimulacaoAeroporto* sim) {
     log_evento_ui(sim, aviao, LOG_INFO, "Iniciando decolagem doméstica (SEQUENCIAL)");
 
     log_evento_ui(sim, aviao, LOG_INFO, "Solicitando TORRE...");
-    if (banker_request_single_resource(sim, aviao, RECURSO_TORRE) != 0) {
+    if (solicitar_recurso_individual(sim, aviao, RECURSO_TORRE) != 0) {
         log_evento_ui(sim, aviao, LOG_ERROR, "FALHA ao alocar TORRE para decolagem.");
         return 0;
     }
     log_evento_ui(sim, aviao, LOG_SUCCESS, "Torre (slot %d) alocada.", aviao->torre_alocada - 1);
 
     log_evento_ui(sim, aviao, LOG_INFO, "Solicitando PORTÃO...");
-    if (banker_request_single_resource(sim, aviao, RECURSO_PORTAO) != 0) {
+    if (solicitar_recurso_individual(sim, aviao, RECURSO_PORTAO) != 0) {
         log_evento_ui(sim, aviao, LOG_ERROR, "FALHA ao alocar PORTÃO. Liberando torre...");
         liberar_torre(sim, aviao->id);
         return 0;
@@ -224,7 +224,7 @@ int decolagem_domestica_atomica(Aviao* aviao, SimulacaoAeroporto* sim) {
     log_evento_ui(sim, aviao, LOG_SUCCESS, "Portão %d alocado.", aviao->portao_alocado);
     
     log_evento_ui(sim, aviao, LOG_INFO, "Solicitando PISTA...");
-    if (banker_request_single_resource(sim, aviao, RECURSO_PISTA) != 0) {
+    if (solicitar_recurso_individual(sim, aviao, RECURSO_PISTA) != 0) {
         log_evento_ui(sim, aviao, LOG_ERROR, "FALHA ao alocar PISTA. Liberando torre e portão...");
         liberar_torre(sim, aviao->id);
         liberar_portao(sim, aviao->id, aviao->portao_alocado);
