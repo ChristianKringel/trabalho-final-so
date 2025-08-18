@@ -1,4 +1,5 @@
 #include "terminal.h"
+#include <locale.h>
 
 static WINDOW *header_win, *airspace_win, *status_win, *queue_win, *log_win;
 
@@ -16,6 +17,7 @@ static WINDOW *header_win, *airspace_win, *status_win, *queue_win, *log_win;
 #define FLIGHT_INFO_FORMAT " %-4s| %-18s | %-8s | %3ds"
 
 void init_terminal_ncurses() {
+    setlocale(LC_ALL, "");
     initscr();
     noecho();
     cbreak();

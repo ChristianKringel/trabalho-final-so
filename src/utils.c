@@ -242,7 +242,7 @@ void processar_aging_pouso(SimulacaoAeroporto* sim, Aviao* aviao, int tempo_espe
     if (tempo_espera >= 90 && !aviao->crash_iminente) {
         aviao->crash_iminente = true;
         log_evento_ui(sim, aviao, LOG_ERROR, "CRASH! Avião %d caiu após 90s de espera no ar", aviao->id);
-        atualizar_estado_aviao(aviao, FALHA_STARVATION);
+        atualizar_estado_aviao(sim, aviao, FALHA_STARVATION);
         incrementar_aviao_falha_starvation(&sim->metricas);
         
     } else if (tempo_espera >= 60 && !aviao->em_alerta) {
@@ -422,39 +422,55 @@ void tratar_aviao_em_alerta(SimulacaoAeroporto* sim, Aviao* aviao) {
 void* monitorar_avioes(void* arg) {
     SimulacaoAeroporto* sim = (SimulacaoAeroporto*)arg;
     int ciclo_contador = 0;
-    
+    const int TEMPO_INATIVIDADE_DEADLOCK = 10; // Sacrifício após 15s de inatividade
+
+    log_evento_ui(sim, NULL, LOG_DEBUG, "Monitor de Deadlocks INICIADO.");
+
     while (sim->ativa) {
-        
-        verificar_pausa_simulacao(sim);
-
         if (!sim->ativa) break;
-        
+
+        // A verificação de aging e atualização de prioridades continua normal.
         verificar_avioes_em_espera(sim);
-        
+
+        // --- LÓGICA DE DETECÇÃO DE DEADLOCK APRIMORADA ---
+        pthread_mutex_lock(&sim->mutex_ultimo_evento);
+        time_t ultimo_evento = sim->ultimo_evento_global;
+        pthread_mutex_unlock(&sim->mutex_ultimo_evento);
+
+        time_t agora = time(NULL);
+        time_t tempo_desde_evento = agora - ultimo_evento;
+
+        // Log de diagnóstico: imprima o status do monitor a cada 3 segundos.
         if (ciclo_contador % 3 == 0) {
-            verificar_recursos_orfaos(sim);
-        }
-        
-        if (ciclo_contador % 5 == 0) {
-            detectar_deadlock(sim);
+            log_evento_ui(sim, NULL, LOG_DEBUG, "Monitor: Inatividade do sistema: %ld segundos.", tempo_desde_evento);
         }
 
-        bool critico = verificar_avioes_em_alerta(sim);
-        if (critico) {
-            tratar_aviao_em_alerta(sim, NULL);
-        } else {
-            sleep(1); 
+        // Verifica se o tempo de inatividade excedeu o limite.
+        if (tempo_desde_evento > TEMPO_INATIVIDADE_DEADLOCK) {
+            log_evento_ui(sim, NULL, LOG_ERROR, "Monitor: Limite de inatividade (%ds) ATINGIDO! Tentando recuperação.", TEMPO_INATIVIDADE_DEADLOCK);
+            recuperar_deadlock_por_sacrificio(sim);
+            
+            // Reinicia o temporizador APÓS a tentativa de recuperação para evitar acionamentos múltiplos.
+            pthread_mutex_lock(&sim->mutex_ultimo_evento);
+            sim->ultimo_evento_global = time(NULL);
+            pthread_mutex_unlock(&sim->mutex_ultimo_evento);
+        }
+
+        // A verificação de recursos órfãos continua útil.
+        if (ciclo_contador % 5 == 0) { // A cada 5 segundos
+             verificar_recursos_orfaos(sim);
         }
         
+        sleep(1);
         ciclo_contador++;
     }
-    
+    log_evento_ui(sim, NULL, LOG_DEBUG, "Monitor de Deadlocks FINALIZADO.");
     return NULL;
 }
 
-void atualizar_estado_aviao(Aviao* aviao, EstadoAviao novo_estado) {
+void atualizar_estado_aviao(SimulacaoAeroporto* sim, Aviao* aviao, EstadoAviao novo_estado) {
     if (aviao == NULL) {
-        return; 
+        return;
     }
 
     aviao->estado = novo_estado;
@@ -462,6 +478,13 @@ void atualizar_estado_aviao(Aviao* aviao, EstadoAviao novo_estado) {
         aviao->tempo_inicio_espera = time(NULL);
     } else if (novo_estado == FINALIZADO_SUCESSO || novo_estado == FALHA_STARVATION || novo_estado == FALHA_DEADLOCK) {
         aviao->tempo_fim_operacao = time(NULL);
+    }
+
+    // NOVO: Atualiza o timestamp global de atividade
+    if (sim != NULL) {
+        pthread_mutex_lock(&sim->mutex_ultimo_evento);
+        sim->ultimo_evento_global = time(NULL);
+        pthread_mutex_unlock(&sim->mutex_ultimo_evento);
     }
 }
 
@@ -1016,4 +1039,45 @@ void banker_init_aviao(RecursosAeroporto* recursos, int aviao_id) {
     }
 
     pthread_mutex_unlock(&recursos->mutex_banco);
+}
+
+// Em src/utils.c, SUBSTITUA a função antiga por esta
+void recuperar_deadlock_por_sacrificio(SimulacaoAeroporto* sim) {
+    if (sim == NULL) return;
+
+    Aviao* vitima = NULL;
+    int menor_prioridade = -1;
+
+    // Usamos trylock para não ficarmos presos se o mutex já estiver em uso.
+    // Se não conseguirmos o lock, tentamos novamente no próximo ciclo do monitor.
+    if (pthread_mutex_trylock(&sim->mutex_simulacao) != 0) {
+        return; // Não foi possível obter o lock, tente novamente mais tarde.
+    }
+
+    // 1. Escolher a vítima
+    for (int i = 0; i < sim->metricas.total_avioes_criados; i++) {
+        Aviao* candidato = &sim->avioes[i];
+        bool possui_recurso = candidato->pista_alocada != -1 || candidato->portao_alocado != -1 || candidato->torre_alocada > 0;
+        bool esta_ativo_e_esperando = candidato->id > 0 && candidato->estado < FINALIZADO_SUCESSO && candidato->sacrificado == false;
+
+        if (esta_ativo_e_esperando && possui_recurso) {
+            if (vitima == NULL || candidato->prioridade_dinamica < menor_prioridade) {
+                menor_prioridade = candidato->prioridade_dinamica;
+                vitima = candidato;
+            }
+        }
+    }
+
+    // 2. Se uma vítima foi encontrada, marque-a para sacrifício
+    if (vitima != NULL) {
+        log_evento_ui(sim, NULL, LOG_ERROR, "DEADLOCK! Sistema inativo. Marcando aviao %d para sacrifício.", vitima->id);
+        
+        // APENAS MARCA A VÍTIMA
+        vitima->sacrificado = true;
+        
+        // Acorda todas as threads para que a vítima possa se verificar e se encerrar.
+        pthread_cond_broadcast(&sim->recursos.cond_banco);
+    }
+
+    pthread_mutex_unlock(&sim->mutex_simulacao);
 }

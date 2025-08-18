@@ -137,7 +137,34 @@ int solicitar_recurso_individual(SimulacaoAeroporto* sim, Aviao* aviao, TipoRecu
             if (tipo_recurso == RECURSO_TORRE) inserir_na_fila_prioridade(&recursos->fila_torres, aviao->id, prioridade_atual);
         }
 
-        pthread_cond_wait(&recursos->cond_banco, &recursos->mutex_banco);
+        switch (tipo_recurso) {
+            case RECURSO_PISTA:
+                pthread_cond_wait(&recursos->cond_pistas, &recursos->mutex_banco);
+                break;
+            case RECURSO_PORTAO:
+                pthread_cond_wait(&recursos->cond_portoes, &recursos->mutex_banco);
+                break;
+            case RECURSO_TORRE:
+                pthread_cond_wait(&recursos->cond_torres, &recursos->mutex_banco);
+                break;
+            default:
+                // Fallback para o comportamento antigo caso algo dê errado
+                pthread_cond_wait(&recursos->cond_banco, &recursos->mutex_banco);
+                break;
+        }
+
+
+        if (aviao->sacrificado) {
+            log_evento_ui(sim, aviao, LOG_ERROR, "Fui sacrificado, abortando operação.");
+            
+            // Remove da fila atual para não ser considerado por outros
+            if (tipo_recurso == RECURSO_PISTA) remover_da_fila_prioridade(&recursos->fila_pistas, aviao->id);
+            if (tipo_recurso == RECURSO_PORTAO) remover_da_fila_prioridade(&recursos->fila_portoes, aviao->id);
+            if (tipo_recurso == RECURSO_TORRE) remover_da_fila_prioridade(&recursos->fila_torres, aviao->id);
+
+            pthread_mutex_unlock(&recursos->mutex_banco);
+            return -99; // Retorna um código de erro especial para "sacrifício"
+        }
 
         if (!sim->ativa) {
             pthread_mutex_unlock(&recursos->mutex_banco);
@@ -194,7 +221,10 @@ void liberar_todos_recursos(SimulacaoAeroporto* sim, Aviao* aviao) {
     // ✓ CORREÇÃO: Proteger TUDO com mutex do banqueiro
     pthread_mutex_lock(&recursos->mutex_banco);
     
-    // Verificar e preparar recursos para liberação dentro do mutex
+    remover_da_fila_prioridade(&recursos->fila_pistas, aviao->id);
+    remover_da_fila_prioridade(&recursos->fila_portoes, aviao->id);
+    remover_da_fila_prioridade(&recursos->fila_torres, aviao->id);
+
     if (aviao->pista_alocada >= 0) {
         recurso_liberado[RECURSO_PISTA] = 1;
         recursos_para_liberar = true;

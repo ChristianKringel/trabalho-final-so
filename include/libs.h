@@ -13,6 +13,7 @@
 #include <unistd.h>
 #include <stdarg.h> 
 #include <ctype.h>
+#include <locale.h>
 
 #define MAX_PISTAS 3
 #define MAX_PORTOES 5
@@ -111,6 +112,7 @@ typedef struct {
     int pista_alocada;
     int portao_alocado;
     int torre_alocada;
+    bool sacrificado
 } Aviao;
 
 // Estrutura para metricas da simulacao
@@ -145,6 +147,8 @@ typedef struct s_simulacao_aeroporto {
     pthread_cond_t cond_pausado;
     pthread_mutex_t mutex_pausado;
     pthread_t monitor_thread;
+    time_t ultimo_evento_global;      // NOVO: Guarda o tempo do último estado alterado
+    pthread_mutex_t mutex_ultimo_evento; // NOVO: Protege a variável acima
 } SimulacaoAeroporto;
 
 typedef struct {

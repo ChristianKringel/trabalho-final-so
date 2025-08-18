@@ -20,6 +20,7 @@ Aviao* criar_aviao(int id, TipoVoo tipo) {
     aviao->pista_alocada = -1;
     aviao->portao_alocado = -1;
     aviao->torre_alocada = -1;
+    aviao->sacrificado = false;
 
     return aviao;
 }
@@ -285,54 +286,68 @@ void* thread_aviao(void* arg) {
     SimulacaoAeroporto* sim = args->sim;
     int sucesso = 0;
 
-    verificar_pausa(sim);
-    if (!sim->ativa) { free(args); return NULL; } 
+    // ... (início da função) ...
 
-    log_evento_ui(sim, aviao, LOG_SYSTEM, "Avião chegou ao espaço aéreo");
-    atualizar_estado_aviao(aviao, AGUARDANDO_POUSO);
-    
-    // Inicializa o tempo de início no ar
-    aviao->tempo_inicio_espera_ar = time(NULL);
-    aviao->tempo_inicio_espera = time(NULL);
-    log_evento_ui(sim, aviao, LOG_INFO, "Está aguardando pouso.");
-    
     if (aviao->tipo == VOO_INTERNACIONAL) {
         sucesso = pouso_internacional_atomico(aviao, sim);
     } else {
         sucesso = pouso_domestico_atomico(aviao, sim);
     }
-    if (!sucesso) {
-        log_evento_ui(sim, aviao, LOG_WARNING, "ABORTOU na fase de pouso.");
+    
+    // --- SUBSTITUA O BLOCO DE SACRIFÍCIO AQUI ---
+    if (sucesso == -99) {
+        atualizar_estado_aviao(sim, aviao, FALHA_DEADLOCK);
+        incrementar_aviao_deadlock(&sim->metricas);
+        
+        // Libera os recursos que porventura já possuía
+        if (aviao->pista_alocada != -1) liberar_pista(sim, aviao->id, aviao->pista_alocada);
+        if (aviao->portao_alocado != -1) liberar_portao(sim, aviao->id, aviao->portao_alocado);
+        if (aviao->torre_alocada > 0) liberar_torre(sim, aviao->id);
+        
         free(args);
         return NULL;
     }
+    if (!sucesso) { /* ... */ }
 
-    verificar_pausa(sim);
-    if (!sim->ativa) { free(args); return NULL; } 
-    
-    atualizar_estado_aviao(aviao, AGUARDANDO_DESEMBARQUE);
-    aviao->chegada_na_fila = time(NULL);
+    // ... (lógica de desembarque) ...
     if (aviao->tipo == VOO_INTERNACIONAL) {
         sucesso = desembarque_internacional_atomico(aviao, sim);
     } else {
         sucesso = desembarque_domestico_atomico(aviao, sim);
     }
-    if (!sucesso) {
-        log_evento_ui(sim, aviao, LOG_WARNING, "ABORTOU na fase de desembarque.");
+
+    // --- E AQUI TAMBÉM ---
+    if (sucesso == -99) {
+        atualizar_estado_aviao(sim, aviao, FALHA_DEADLOCK);
+        incrementar_aviao_deadlock(&sim->metricas);
+
+        if (aviao->pista_alocada != -1) liberar_pista(sim, aviao->id, aviao->pista_alocada);
+        if (aviao->portao_alocado != -1) liberar_portao(sim, aviao->id, aviao->portao_alocado);
+        if (aviao->torre_alocada > 0) liberar_torre(sim, aviao->id);
+
         free(args);
         return NULL;
     }
+    if (!sucesso) { /* ... */ }
 
-    verificar_pausa(sim);
-    if (!sim->ativa) { free(args); return NULL; }
-    
-    atualizar_estado_aviao(aviao, AGUARDANDO_DECOLAGEM);
-    aviao->tempo_inicio_espera = time(NULL);
-    aviao->chegada_na_fila = time(NULL); 
+    // ... (lógica de decolagem) ...
     if (aviao->tipo == VOO_INTERNACIONAL) {
         sucesso = decolagem_internacional_atomica(aviao, sim);
     } else {
         sucesso = decolagem_domestica_atomica(aviao, sim);
+    }
+    
+    // --- E AQUI FINALMENTE ---
+    if (sucesso == -99) {
+        atualizar_estado_aviao(sim, aviao, FALHA_DEADLOCK);
+        incrementar_aviao_deadlock(&sim->metricas);
+
+        if (aviao->pista_alocada != -1) liberar_pista(sim, aviao->id, aviao->pista_alocada);
+        if (aviao->portao_alocado != -1) liberar_portao(sim, aviao->id, aviao->portao_alocado);
+        if (aviao->torre_alocada > 0) liberar_torre(sim, aviao->id);
+
+        free(args);
+        return NULL;
     }
     if (!sucesso) {
         log_evento_ui(sim, aviao, LOG_WARNING, "ABORTOU na fase de decolagem.");
@@ -341,7 +356,7 @@ void* thread_aviao(void* arg) {
     }
 
     log_evento_ui(sim, aviao, LOG_SUCCESS, "completou seu ciclo de vida com SUCESSO.");
-    atualizar_estado_aviao(aviao, FINALIZADO_SUCESSO);
+    atualizar_estado_aviao(sim, aviao, FINALIZADO_SUCESSO);
     incrementar_aviao_sucesso(&sim->metricas);
     
     free(args);
