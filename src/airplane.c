@@ -336,7 +336,7 @@ void* criador_avioes(void* arg) {
         
         if (!sim->ativa) break;
 
-        usleep(1000000 + (rand() % 2500000)); // 1 - 3 segundos
+        usleep(1000000 + (rand() % 2000000)); // 1 - 3 segundos
 
         pthread_mutex_lock(&sim->mutex_simulacao);
 

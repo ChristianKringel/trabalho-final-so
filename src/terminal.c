@@ -1,5 +1,4 @@
 #include "terminal.h"
-#include <locale.h>
 
 static WINDOW *header_win, *airspace_win, *status_win, *queue_win, *log_win;
 
@@ -68,7 +67,6 @@ static void get_active_planes(SimulacaoAeroporto* sim, int* voos_ativos) {
 }
 
 void init_terminal_ncurses() {
-    setlocale(LC_ALL, "");
     initscr();
     noecho();
     cbreak();

@@ -112,7 +112,7 @@ typedef struct {
     int pista_alocada;
     int portao_alocado;
     int torre_alocada;
-    bool sacrificado
+    bool sacrificado;
 } Aviao;
 
 // Estrutura para metricas da simulacao

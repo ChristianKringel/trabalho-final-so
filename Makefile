@@ -11,7 +11,7 @@ CC = gcc
 CFLAGS = -g -I$(INCDIR) -std=c11
 
 # Bibliotecas a serem linkadas
-LIBS = -pthread -lncursesw 
+LIBS = -pthread -lncurses
 
 # --- Geração Automática de Arquivos ---
 

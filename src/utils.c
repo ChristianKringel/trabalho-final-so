@@ -916,7 +916,7 @@ int banker_request_resources(RecursosAeroporto* recursos, int aviao_id, int requ
 }
 
 int banker_release_resources(RecursosAeroporto* recursos, int aviao_id, int release[]) {
-    if (aviao_id < 0 || aviao_id >= MAX_AVIOES) { return; }
+    if (aviao_id < 0 || aviao_id >= MAX_AVIOES) { return -1; }
     
     for (int i = 0; i < N_RESOURCES; i++) {
         if (release[i] < 0 || release[i] > recursos->banco.alocacao[aviao_id][i]) {
