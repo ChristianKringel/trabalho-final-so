@@ -20,7 +20,6 @@ void inserir_na_fila_prioridade(FilaPrioridade* fila, int aviao_id, int priorida
     pthread_mutex_lock(&fila->mutex);
     
     int pos = fila->tamanho;
-    // CORREÇÃO: ordenação decrescente - maiores prioridades primeiro
     while(pos > 0 && fila->prioridades[pos-1] < prioridade){
         fila->avioes_ids[pos] = fila->avioes_ids[pos - 1];
         fila->prioridades[pos] = fila->prioridades[pos - 1];
@@ -45,7 +44,6 @@ int remover_da_fila_prioridade(FilaPrioridade* fila, int aviao_id) {
         return -1;
     }
     
-    // Encontra o avião específico na fila
     int pos_encontrada = -1;
     for (int i = 0; i < fila->tamanho; i++) {
         if (fila->avioes_ids[i] == aviao_id) {
@@ -54,13 +52,11 @@ int remover_da_fila_prioridade(FilaPrioridade* fila, int aviao_id) {
         }
     }
     
-    // Se não encontrou o avião, retorna erro
     if (pos_encontrada == -1) {
         pthread_mutex_unlock(&fila->mutex);
         return -1;
     }
     
-    // Move todos os elementos após a posição encontrada uma posição para trás
     for (int i = pos_encontrada; i < fila->tamanho - 1; i++) {
         fila->avioes_ids[i] = fila->avioes_ids[i + 1];
         fila->prioridades[i] = fila->prioridades[i + 1];
@@ -70,7 +66,6 @@ int remover_da_fila_prioridade(FilaPrioridade* fila, int aviao_id) {
     fila->avioes_ids[fila->tamanho] = -1;
     fila->prioridades[fila->tamanho] = 0;
     
-    // Sinalizar que a fila foi modificada
     pthread_cond_signal(&fila->cond);
     
     pthread_mutex_unlock(&fila->mutex);
@@ -107,7 +102,6 @@ void destruir_fila_prioridade(FilaPrioridade* fila) {
     pthread_cond_destroy(&fila->cond);
 }
 
-// =============== FUNÇÕES DE PRIORIDADE E MONITORAMENTO ===============
 int obter_proximo_da_fila_prioridade(FilaPrioridade* fila) {
     if (!fila || fila->tamanho == 0) return -1;
 
@@ -115,12 +109,10 @@ int obter_proximo_da_fila_prioridade(FilaPrioridade* fila) {
 }
 
 bool eh_minha_vez_na_fila(FilaPrioridade* fila, int aviao_id) {
-    if (!fila) return true; // Se não há fila, todos podem tentar
+    if (!fila) return true;
     
-    // Se a fila está vazia, qualquer avião pode tentar
     if (fila->tamanho == 0) return true;
     
-    // Verifica se é o primeiro da fila
     return fila->avioes_ids[0] == aviao_id; 
 }
 
@@ -179,32 +171,23 @@ void atualizar_prioridade_nas_filas(SimulacaoAeroporto* sim, Aviao* aviao) {
 int calcular_prioridade_dinamica(Aviao* aviao, time_t agora, SimulacaoAeroporto* sim) {
     if (aviao == NULL) return 0;
     
-    // Prioridades base mais equilibradas
     int prioridade_base = (aviao->tipo == VOO_INTERNACIONAL) ? 25 : 15;
     int tempo_espera = 0;
     if (aviao->estado == AGUARDANDO_POUSO) {
-        tempo_espera = sim ? calcular_tempo_espera_efetivo(sim, aviao->tempo_inicio_espera_ar) 
-                          : (int)difftime(agora, aviao->tempo_inicio_espera_ar);
+        tempo_espera = sim ? calcular_tempo_espera_efetivo(sim, aviao->tempo_inicio_espera_ar) : (int)difftime(agora, aviao->tempo_inicio_espera_ar);
     } else if (aviao->estado == AGUARDANDO_DESEMBARQUE || aviao->estado == AGUARDANDO_DECOLAGEM) {
-        tempo_espera = sim ? calcular_tempo_espera_efetivo(sim, aviao->chegada_na_fila)
-                          : (int)difftime(agora, aviao->chegada_na_fila);
+        tempo_espera = sim ? calcular_tempo_espera_efetivo(sim, aviao->chegada_na_fila) : (int)difftime(agora, aviao->chegada_na_fila);
     }
     
-    // AGING EXPONENCIAL - Prioridade aumenta drasticamente com o tempo
     int bonus_tempo = 0;
     if (tempo_espera >= 0) {
-        bonus_tempo = (tempo_espera * tempo_espera * tempo_espera) / 20 + 
-                      (tempo_espera * tempo_espera) / 5 + 
-                      tempo_espera * 8;
+        bonus_tempo = (tempo_espera * tempo_espera * tempo_espera) / 20 + (tempo_espera * tempo_espera) / 5 + tempo_espera * 8;
     }
     
-    // Bônus para aviões em situação crítica
     int bonus_emergencia = 0;
     if (aviao->crash_iminente) {
-        // PRIORIDADE MÁXIMA - sempre será o primeiro da fila
-        bonus_emergencia = 50000;
+        bonus_emergencia = 50000; // Prioridade máxima
     } else if (aviao->em_alerta) {
-        // Prioridade muito alta - baseada no tempo de alerta
         if (aviao->estado == AGUARDANDO_POUSO) {
             bonus_emergencia = 5000; // Pouso é crítico
         } else {
@@ -212,24 +195,16 @@ int calcular_prioridade_dinamica(Aviao* aviao, time_t agora, SimulacaoAeroporto*
         }
     }
     
-    // Bônus adicional baseado no tempo total esperando (não só no ar)
     int tempo_total_espera = (int)difftime(agora, aviao->tempo_criacao);
     int bonus_persistencia = tempo_total_espera * 6; // 3 pontos por segundo de vida
     
     int bonus_domestico = 0;
     if (aviao->tipo == VOO_DOMESTICO && tempo_espera > 15) {
-        // Voos domésticos ganham prioridade extra após 15 segundos
         bonus_domestico = (tempo_espera - 15) * 4;
     }
     
-    int prioridade_final = prioridade_base + bonus_tempo + bonus_emergencia + 
-                          bonus_persistencia + bonus_domestico;
-    
-    // Debug para prioridades extremas
-    if (prioridade_final > 1000 && !aviao->em_alerta) {
-        log_evento_ui(NULL, aviao, LOG_INFO, "Prioridade alta por aging: %d (tempo: %ds)", prioridade_final, tempo_espera);
-    }
-    
+    int prioridade_final = prioridade_base + bonus_tempo + bonus_emergencia + bonus_persistencia + bonus_domestico;
+        
     return prioridade_final;
 }
 
@@ -237,7 +212,6 @@ bool aviao_deve_ser_ignorado(Aviao* aviao) {
     return aviao->id <= 0 || aviao->estado == FINALIZADO_SUCESSO || aviao->estado == FALHA_STARVATION || aviao->estado == FALHA_DEADLOCK;
 }
 
-// =============== FUNÇÕES DE AGING ===============
 void processar_aging_pouso(SimulacaoAeroporto* sim, Aviao* aviao, int tempo_espera) {
     if (tempo_espera >= 90 && !aviao->crash_iminente) {
         aviao->crash_iminente = true;
@@ -310,7 +284,6 @@ void processar_aging_aviao(SimulacaoAeroporto* sim, Aviao* aviao, time_t agora) 
     processar_aging_dinamico(sim, aviao, agora);
 }
 
-// =============== FUNÇÕES DE VERIFICAÇÃO E MONITORAMENTO ===============
 void verificar_avioes_em_espera(SimulacaoAeroporto* sim) {
     if (sim == NULL) return;
     
@@ -696,7 +669,6 @@ const char* estado_para_str(EstadoAviao estado) {
     }
 }
 
-// Calcula o tempo efetivo da simulação descontando pausas
 double calcular_tempo_efetivo_simulacao(SimulacaoAeroporto* sim) {
     if (!sim) return 0.0;
     
@@ -712,23 +684,6 @@ double calcular_tempo_efetivo_simulacao(SimulacaoAeroporto* sim) {
     return tempo_total - sim->tempo_pausado_total - tempo_pausa_atual;
 }
 
-// Atualiza o controle de tempo de pausa
-void atualizar_tempo_pausa(SimulacaoAeroporto* sim, bool iniciando_pausa) {
-    if (!sim) return;
-    
-    if (iniciando_pausa) {
-        sim->inicio_pausa = time(NULL);
-    } else {
-        // Finalizando pausa - acumula o tempo pausado
-        if (sim->inicio_pausa > 0) {
-            time_t agora = time(NULL);
-            sim->tempo_pausado_total += difftime(agora, sim->inicio_pausa);
-            sim->inicio_pausa = 0;
-        }
-    }
-}
-
-// Calcula o tempo efetivo de espera de um avião descontando pausas
 int calcular_tempo_espera_efetivo(SimulacaoAeroporto* sim, time_t inicio_espera) {
     if (!sim || inicio_espera <= 0) return 0;
     
@@ -748,6 +703,21 @@ int calcular_tempo_espera_efetivo(SimulacaoAeroporto* sim, time_t inicio_espera)
     
     int tempo_efetivo = (int)(tempo_total - tempo_pausa_descontar);
     return tempo_efetivo > 0 ? tempo_efetivo : 0;
+}
+
+void atualizar_tempo_pausa(SimulacaoAeroporto* sim, bool iniciando_pausa) {
+    if (!sim) return;
+    
+    if (iniciando_pausa) {
+        sim->inicio_pausa = time(NULL);
+    } else {
+        // Finalizando pausa - acumula o tempo pausado
+        if (sim->inicio_pausa > 0) {
+            time_t agora = time(NULL);
+            sim->tempo_pausado_total += difftime(agora, sim->inicio_pausa);
+            sim->inicio_pausa = 0;
+        }
+    }
 }
 
 bool is_safe_state(Banqueiro* banco) {
@@ -850,50 +820,49 @@ bool is_safe_state(Banqueiro* banco) {
     return true; // Estado seguro
 }
 
+void banker_init_aviao(RecursosAeroporto* recursos, int aviao_id) {
+    if (aviao_id < 0 || aviao_id >= MAX_AVIOES) { return; }
+
+    pthread_mutex_lock(&recursos->mutex_banco);
+
+    recursos->banco.necessidade[aviao_id][RECURSO_PISTA] = 1;
+    recursos->banco.necessidade[aviao_id][RECURSO_PORTAO] = 1;
+    recursos->banco.necessidade[aviao_id][RECURSO_TORRE] = 1;
+
+    for (int i = 0; i < N_RESOURCES; i++) {
+        recursos->banco.alocacao[aviao_id][i] = 0;
+    }
+
+    pthread_mutex_unlock(&recursos->mutex_banco);
+}
+
 int banker_request_resources(RecursosAeroporto* recursos, int aviao_id, int request[]) {
     if (aviao_id < 0 || aviao_id >= MAX_AVIOES) { return -1; }
     
     int aviao_id_original = aviao_id + 1;
     
-    // 1. Verificar se o pedido é válido
     for (int i = 0; i < N_RESOURCES; i++) {
         if (request[i] < 0 || request[i] > recursos->banco.necessidade[aviao_id][i]) {
             return -2;
         }
     }
     
-    // 2. Verificar filas de prioridade
-    if (request[RECURSO_PISTA] > 0 && !eh_minha_vez_na_fila(&recursos->fila_pistas, aviao_id_original)) {
-        return -5;
-    }
-    if (request[RECURSO_PORTAO] > 0 && !eh_minha_vez_na_fila(&recursos->fila_portoes, aviao_id_original)) {
-        return -6;
-    }
-    if (request[RECURSO_TORRE] > 0 && !eh_minha_vez_na_fila(&recursos->fila_torres, aviao_id_original)) {
-        return -7;
-    }
+    if (request[RECURSO_PISTA] > 0 && !eh_minha_vez_na_fila(&recursos->fila_pistas, aviao_id_original)) { return -5; }
+    if (request[RECURSO_PORTAO] > 0 && !eh_minha_vez_na_fila(&recursos->fila_portoes, aviao_id_original)) { return -6; }
+    if (request[RECURSO_TORRE] > 0 && !eh_minha_vez_na_fila(&recursos->fila_torres, aviao_id_original)) { return -7; }
     
-    // 3. Verificar disponibilidade física ANTES da simulação
-    if (request[RECURSO_PISTA] > 0 && recursos->pistas_disponiveis == 0) {
-        return -3;
-    }
-    if (request[RECURSO_PORTAO] > 0 && recursos->portoes_disponiveis == 0) {
-        return -3;
-    }
-    if (request[RECURSO_TORRE] > 0 && recursos->slots_torre_disponiveis == 0) {
-        return -3;
-    }
     
-    // 4. Simular alocação temporária
+    if (request[RECURSO_PISTA] > 0 && recursos->pistas_disponiveis == 0) { return -3; }
+    if (request[RECURSO_PORTAO] > 0 && recursos->portoes_disponiveis == 0) { return -3; }
+    if (request[RECURSO_TORRE] > 0 && recursos->slots_torre_disponiveis == 0) { return -3; }
+    
     for (int i = 0; i < N_RESOURCES; i++) {
         recursos->banco.disponivel[i] -= request[i];
         recursos->banco.alocacao[aviao_id][i] += request[i];
         recursos->banco.necessidade[aviao_id][i] -= request[i];
     }
     
-    // 5. Verificar se o estado permanece seguro
     if (!is_safe_state(&recursos->banco)) {
-        // Reverter simulação
         for (int i = 0; i < N_RESOURCES; i++) {
             recursos->banco.disponivel[i] += request[i];
             recursos->banco.alocacao[aviao_id][i] -= request[i];
@@ -902,7 +871,6 @@ int banker_request_resources(RecursosAeroporto* recursos, int aviao_id, int requ
         return -4;
     }
     
-    // 6. ALOCAÇÃO FÍSICA (fazer aqui, não depois)
     if (request[RECURSO_PISTA] > 0) {
         pthread_mutex_lock(&recursos->mutex_pistas);
         for (int i = 0; i < recursos->total_pistas; i++) {
@@ -939,57 +907,34 @@ int banker_request_resources(RecursosAeroporto* recursos, int aviao_id, int requ
         }
         pthread_mutex_unlock(&recursos->mutex_torres);
     }
-    
-    // 7. Remover das filas
-    if (request[RECURSO_PISTA] > 0) {
-        remover_da_fila_prioridade(&recursos->fila_pistas, aviao_id_original);
-    }
-    if (request[RECURSO_PORTAO] > 0) {
-        remover_da_fila_prioridade(&recursos->fila_portoes, aviao_id_original);
-    }
-    if (request[RECURSO_TORRE] > 0) {
-        remover_da_fila_prioridade(&recursos->fila_torres, aviao_id_original);
-    }
 
-    return 0; // Sucesso
-}
+    if (request[RECURSO_PISTA] > 0) { remover_da_fila_prioridade(&recursos->fila_pistas, aviao_id_original); }
+    if (request[RECURSO_PORTAO] > 0) { remover_da_fila_prioridade(&recursos->fila_portoes, aviao_id_original); }
+    if (request[RECURSO_TORRE] > 0) { remover_da_fila_prioridade(&recursos->fila_torres, aviao_id_original); }
 
-int banker_request_single_resource(SimulacaoAeroporto* sim, Aviao* aviao, TipoRecurso tipo_recurso) {
-    return solicitar_recurso_individual(sim, aviao, tipo_recurso);
+    return 0;
 }
 
 int banker_release_resources(RecursosAeroporto* recursos, int aviao_id, int release[]) {
-    if (aviao_id < 0 || aviao_id >= MAX_AVIOES) {
-        return; // ID inválido
-    }
+    if (aviao_id < 0 || aviao_id >= MAX_AVIOES) { return; }
     
-    // 1. Verificar se o release é válido
     for (int i = 0; i < N_RESOURCES; i++) {
         if (release[i] < 0 || release[i] > recursos->banco.alocacao[aviao_id][i]) {
 
-            return -1; // Release inválido
+            return -1;
         }
     }
     
-    // 2. Liberar os recursos
     for (int i = 0; i < N_RESOURCES; i++) {
         recursos->banco.disponivel[i] += release[i];
         recursos->banco.alocacao[aviao_id][i] -= release[i];
         recursos->banco.necessidade[aviao_id][i] += release[i];
     }
     
-    // 3. Sinalizar as filas de prioridade dos recursos liberados
-    if (release[RECURSO_PISTA] > 0) {
-        pthread_cond_signal(&recursos->fila_pistas.cond);
-    }
-    if (release[RECURSO_PORTAO] > 0) {
-        pthread_cond_signal(&recursos->fila_portoes.cond);
-    }
-    if (release[RECURSO_TORRE] > 0) {
-        pthread_cond_signal(&recursos->fila_torres.cond);
-    }
+    if (release[RECURSO_PISTA] > 0) { pthread_cond_signal(&recursos->fila_pistas.cond); }
+    if (release[RECURSO_PORTAO] > 0) { pthread_cond_signal(&recursos->fila_portoes.cond); }
+    if (release[RECURSO_TORRE] > 0) {pthread_cond_signal(&recursos->fila_torres.cond); }
     
-    // 4. Sinalizar também o condition variable geral do banco
     pthread_cond_broadcast(&recursos->cond_banco);
     return 0;
 }
@@ -1021,27 +966,6 @@ void definir_necessidade_operacao(EstadoAviao operacao, int necessidade[N_RESOUR
     }
 }
 
-void banker_init_aviao(RecursosAeroporto* recursos, int aviao_id) {
-    if (aviao_id < 0 || aviao_id >= MAX_AVIOES) {
-        return; // ID inválido
-    }
-
-    pthread_mutex_lock(&recursos->mutex_banco);
-
-    // A necessidade máxima é para a decolagem (pior caso)
-    recursos->banco.necessidade[aviao_id][RECURSO_PISTA] = 1;
-    recursos->banco.necessidade[aviao_id][RECURSO_PORTAO] = 1;
-    recursos->banco.necessidade[aviao_id][RECURSO_TORRE] = 1;
-
-    // Garante que a alocação inicial é zero para este avião
-    for (int i = 0; i < N_RESOURCES; i++) {
-        recursos->banco.alocacao[aviao_id][i] = 0;
-    }
-
-    pthread_mutex_unlock(&recursos->mutex_banco);
-}
-
-// Em src/utils.c, SUBSTITUA a função antiga por esta
 void recuperar_deadlock_por_sacrificio(SimulacaoAeroporto* sim) {
     if (sim == NULL) return;
 
