@@ -338,13 +338,29 @@ void* criador_avioes(void* arg) {
         
         if (!sim->ativa) break;
 
-        usleep(2000000 + (rand() % 250000)); // 2 - 4.5 segundos
+        usleep(1500000 + (rand() % 200000)); 
 
         pthread_mutex_lock(&sim->mutex_simulacao);
 
         if (proximo_id > sim->max_avioes) {
             log_evento_ui(sim, NULL, LOG_SYSTEM, "Capacidade máxima de aviões atingida.");
             pthread_mutex_unlock(&sim->mutex_simulacao);
+            continue;
+        }
+
+        int avioes_ativos = 0;
+        for (int i = 0; i < proximo_id - 1; i++) {
+            if (sim->avioes[i].estado != FINALIZADO_SUCESSO && 
+                sim->avioes[i].estado != FALHA_DEADLOCK &&
+                sim->avioes[i].estado != FINALIZADO_SUCESSO) {
+                avioes_ativos++;
+            }
+        }
+
+        if (avioes_ativos >= 7) {
+            log_evento_ui(sim, NULL, LOG_SYSTEM, "Limite de 8 aviões simultâneos atingido (%d ativos). Aguardando...", avioes_ativos);
+            pthread_mutex_unlock(&sim->mutex_simulacao);
+            usleep(1000000);
             continue;
         }
 
