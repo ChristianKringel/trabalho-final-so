@@ -357,7 +357,7 @@ void* criador_avioes(void* arg) {
             }
         }
 
-        if (avioes_ativos >= 7) {
+        if (avioes_ativos >= 6) {
             log_evento_ui(sim, NULL, LOG_SYSTEM, "Limite de 8 aviões simultâneos atingido (%d ativos). Aguardando...", avioes_ativos);
             pthread_mutex_unlock(&sim->mutex_simulacao);
             usleep(1000000);
