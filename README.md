@@ -9,6 +9,8 @@ O simulador modela os seguintes recursos limitados:
 * **Portões:** 5 portões de embarque para entrada e saída de passageiros.
 * **Torres de Controle:** 1 torre de controle que gerencia a comunicação e liberação das operações, atendendo no máximo duas operações simultaneamente.
 
+Para alterar esses valores é necessário mudar os #DEFINE em utils.h. Esse comportamento não influencia na UI pois ela é fixa! 
+
 ## Regras e Comportamento
 
 A simulação apresenta diferentes ordens de alocação de recursos para voos domésticos e internacionais, que são a principal causa dos deadlocks. O projeto utiliza o Algoritmo do Banqueiro para a alocação segura de recursos, além de um sistema de prioridade dinâmica e detecção de inatividade para mitigar deadlocks e *starvation*.
@@ -24,6 +26,7 @@ As threads de aviões passam pelas seguintes fases, solicitando recursos em orde
     * **Pouso:** Requer Torre → Pista
     * **Desembarque:** Requer Torre → Portão
     * **Decolagem:** Requer Portão → Pista → Torre
+
 
 ## Como Compilar e Executar
 Para obter uma cópia local do projeto, clone o repositório utilizando o comando abaixo:
@@ -70,4 +73,5 @@ make clean
 ## Desenvolvido por: 
 [Christian Kringel](https://github.com/ChristianKringel) 
 [Vinicius Hallmann](https://github.com/ViniHallmann)
+
 
