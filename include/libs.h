@@ -147,8 +147,8 @@ typedef struct s_simulacao_aeroporto {
     pthread_cond_t cond_pausado;
     pthread_mutex_t mutex_pausado;
     pthread_t monitor_thread;
-    time_t ultimo_evento_global;      // NOVO: Guarda o tempo do último estado alterado
-    pthread_mutex_t mutex_ultimo_evento; // NOVO: Protege a variável acima
+    time_t ultimo_evento_global;    
+    pthread_mutex_t mutex_ultimo_evento; 
 } SimulacaoAeroporto;
 
 typedef struct {
