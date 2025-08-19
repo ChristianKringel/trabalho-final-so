@@ -12,5 +12,6 @@ void incrementar_aviao_deadlock(MetricasSimulacao* metricas);
 void incrementar_contador_avioes_criados(MetricasSimulacao* metricas);
 void incrementar_voos_domesticos(MetricasSimulacao* metricas);
 void incrementar_voos_internacionais(MetricasSimulacao* metricas);
+void salvar_metricas_finais(MetricasSimulacao* metricas, const char* nome_arquivo);
 
 #endif

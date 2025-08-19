@@ -374,6 +374,47 @@ void* criador_avioes(void* arg) {
     return NULL;
 }
 
+int tratar_deadlock_e_falhas(Aviao* aviao, SimulacaoAeroporto* sim, void* args, int sucesso, const char* fase) {
+    if (!aviao || !sim || !fase) {
+        return -1; // Erro nos parâmetros
+    }
 
+    if (aviao->sacrificado) {
+        log_evento_ui(sim, aviao, LOG_ERROR, "Foi SACRIFICADO durante %s para resolver deadlock.", fase);
+        atualizar_estado_aviao(sim, aviao, FALHA_DEADLOCK);
+        incrementar_aviao_deadlock(&sim->metricas);
 
+        if (aviao->pista_alocada != -1) {
+            liberar_pista(sim, aviao->id, aviao->pista_alocada);
+        }
+        if (aviao->portao_alocado != -1) {
+            liberar_portao(sim, aviao->id, aviao->portao_alocado);
+        }
+        if (aviao->torre_alocada > 0) {
+            liberar_torre(sim, aviao->id);
+        }
+        
+        if (args) free(args);
+        return 1;
+    }
+
+    if (!sucesso) {
+        log_evento_ui(sim, aviao, LOG_ERROR, "FALHA durante %s. Tentando novamente...", fase);
+
+        time_t tempo_atual = time(NULL);
+        if (verificar_starvation(aviao, tempo_atual)) {
+            log_evento_ui(sim, aviao, LOG_ERROR, "STARVATION detectada durante %s.", fase);
+            atualizar_estado_aviao(sim, aviao, FALHA_STARVATION);
+            incrementar_aviao_falha_starvation(&sim->metricas);
+            
+            if (args) free(args);
+            return 1; 
+        
+
+        usleep(100000); 
+    }
+
+    return 0;
+    }
+} 
 

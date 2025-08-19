@@ -26,5 +26,7 @@ int decolagem_domestica_atomica(Aviao* aviao, SimulacaoAeroporto* sim);
 Aviao* criar_aviao(int id, TipoVoo tipo);
 void* criador_avioes(void* arg);
 TipoVoo gerar_tipo_voo_aleatorio();
+void* thread_aviao(void* arg);
+int tratar_deadlock_e_falhas(Aviao* aviao, SimulacaoAeroporto* sim, void* args, int sucesso, const char* fase);
 
 #endif
