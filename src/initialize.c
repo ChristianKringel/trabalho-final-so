@@ -1,5 +1,6 @@
 #include "initialize.h"
 #include "utils.h"
+#include "logger.h"
 
 void inicializar_metricas(MetricasSimulacao* metricas){
     if (metricas == NULL) {
@@ -116,5 +117,6 @@ SimulacaoAeroporto* inicializar_simulacao(int pistas, int portoes, int torres, i
     sim->ultimo_evento_global = time(NULL);
     pthread_mutex_init(&sim->mutex_ultimo_evento, NULL);
 
+    create_log_file();
     return sim;
 }

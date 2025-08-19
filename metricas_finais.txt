@@ -2,40 +2,39 @@
            RELATÓRIO FINAL DE MÉTRICAS
            SIMULADOR DE TRÁFEGO AÉREO
 =======================================================
-Data/Hora: 2025-08-18 20:58:37
+Data/Hora: 2025-08-19 17:42:18
 =======================================================
 
 ESTATÍSTICAS DE AVIÕES:
 ------------------------
-Total de aviões criados:        33
-Aviões finalizados com sucesso: 18
-Aviões com falha por starvation: 2
-Aviões com falha por deadlock:  9
+Total de aviões criados:        1
+Aviões finalizados com sucesso: 0
+Aviões com falha por starvation: 0
+Aviões com falha por deadlock:  0
 
 TAXAS DE PERFORMANCE:
 ---------------------
-Taxa de sucesso:     54.55%
-Taxa de starvation:  6.06%
-Taxa de deadlock:    27.27%
+Taxa de sucesso:     0,00%
+Taxa de starvation:  0,00%
+Taxa de deadlock:    0,00%
 
 TIPOS DE VOO:
 -------------
-Voos domésticos:      14
-Voos internacionais:  19
-Percentual doméstico:     42.42%
-Percentual internacional: 57.58%
+Voos domésticos:      0
+Voos internacionais:  1
+Percentual doméstico:     0,00%
+Percentual internacional: 100,00%
 
 OPERAÇÕES REALIZADAS:
 --------------------
-Operações de pouso:      0
+Operações de pouso:      1
 Operações de desembarque: 0
 Operações de decolagem:   0
-Total de operações:       0
+Total de operações:       1
 
 ANÁLISE DE EFICIÊNCIA:
 ----------------------
-Média de operações por avião bem-sucedido: 0.00
-Taxa total de falhas: 33.33%
+Taxa total de falhas: 0,00%
 
 =======================================================
               FIM DO RELATÓRIO

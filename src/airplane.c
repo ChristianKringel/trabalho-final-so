@@ -56,6 +56,7 @@ int pouso_internacional_atomico(Aviao* aviao, SimulacaoAeroporto* sim) {
 
     aviao->estado = POUSANDO;
     log_evento_ui(sim, aviao, LOG_SUCCESS, "POUSANDO - Pista %d, Torre slot %d", aviao->pista_alocada, aviao->torre_alocada - 1);
+    sim->metricas.operacoes_pouso++;
     usleep(1500000); // 1.5 segundos
 
     liberar_pista(sim, aviao->id, aviao->pista_alocada);
@@ -93,6 +94,7 @@ int pouso_domestico_atomico(Aviao* aviao, SimulacaoAeroporto* sim) {
 
     aviao->estado = POUSANDO;
     log_evento_ui(sim, aviao, LOG_SUCCESS, "POUSANDO - Pista %d, Torre slot %d", aviao->pista_alocada, aviao->torre_alocada - 1);
+    sim->metricas.operacoes_pouso++;
     usleep(1500000); 
 
     liberar_pista(sim, aviao->id, aviao->pista_alocada);
@@ -123,7 +125,8 @@ int desembarque_internacional_atomico(Aviao* aviao, SimulacaoAeroporto* sim) {
 
     aviao->estado = DESEMBARCANDO;
     log_evento_ui(sim, aviao, LOG_SUCCESS, "DESEMBARCANDO - Portão %d", aviao->portao_alocado);
-    usleep(1500000); 
+    sim->metricas.operacoes_desembarque++;
+    usleep(1500000);
 
     liberar_torre(sim, aviao->id);
     liberar_portao(sim, aviao->id, aviao->portao_alocado);
@@ -154,6 +157,7 @@ int desembarque_domestico_atomico(Aviao* aviao, SimulacaoAeroporto* sim) {
 
     aviao->estado = DESEMBARCANDO;
     log_evento_ui(sim, aviao, LOG_SUCCESS, "DESEMBARCANDO - Portão %d", aviao->portao_alocado);
+    sim->metricas.operacoes_desembarque++;
     usleep(2000000); // 2 segundos
 
     liberar_torre(sim, aviao->id);
@@ -194,6 +198,7 @@ int decolagem_internacional_atomica(Aviao* aviao, SimulacaoAeroporto* sim) {
 
     aviao->estado = DECOLANDO;
     log_evento_ui(sim, aviao, LOG_SUCCESS, "DECOLANDO - Pista %d, Portão %d, Torre slot %d", aviao->pista_alocada, aviao->portao_alocado, aviao->torre_alocada - 1);
+    sim->metricas.operacoes_decolagem++;
     usleep(2000000); // 1.5 segundos
 
     liberar_portao(sim, aviao->id, aviao->portao_alocado);
@@ -234,6 +239,7 @@ int decolagem_domestica_atomica(Aviao* aviao, SimulacaoAeroporto* sim) {
 
     aviao->estado = DECOLANDO;
     log_evento_ui(sim, aviao, LOG_SUCCESS, "DECOLANDO - Pista %d, Portão %d, Torre slot %d", aviao->pista_alocada, aviao->portao_alocado, aviao->torre_alocada - 1);
+    sim->metricas.operacoes_decolagem++;
     usleep(1500000); // 1.5 segundos
 
     liberar_portao(sim, aviao->id, aviao->portao_alocado);

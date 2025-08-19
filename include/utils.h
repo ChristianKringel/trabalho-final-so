@@ -4,13 +4,10 @@
 #ifndef UTILS_H
 #define UTILS_H
 
-void dormir_operacao(int min_ms, int max_ms);
-void dormir_operacao_com_pausa(SimulacaoAeroporto* sim, int min_ms, int max_ms);
 int gerar_numero_aleatorio(int min, int max);
 
 // Funções de prioridade e monitoramento
 void* monitorar_avioes(void* arg);
-int calcular_prioridade_dinamica(Aviao* aviao, time_t agora, SimulacaoAeroporto* sim);
 void verificar_avioes_em_espera(SimulacaoAeroporto* sim);
 
 // Funções de fila de prioridade
@@ -31,10 +28,6 @@ void liberar_memoria(SimulacaoAeroporto* sim);
 double calcular_tempo_efetivo_simulacao(SimulacaoAeroporto* sim);
 int calcular_tempo_espera_efetivo(SimulacaoAeroporto* sim, time_t inicio_espera);
 void atualizar_tempo_pausa(SimulacaoAeroporto* sim, bool iniciando_pausa);
-void imprimir_status_operacao(int id_aviao, TipoVoo tipo, const char* operacao, const char* status);
-void imprimir_status_recursos(RecursosAeroporto* recursos);
-void gerar_relatorio_final(SimulacaoAeroporto* sim);
-void imprimir_resumo_aviao(Aviao* aviao);
 
 void recuperar_deadlock_por_sacrificio(SimulacaoAeroporto* sim);
 void verificar_pausa(SimulacaoAeroporto* sim);

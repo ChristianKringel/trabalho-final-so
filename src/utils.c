@@ -116,13 +116,19 @@ int obter_proximo_da_fila_prioridade(FilaPrioridade* fila) {
 }
 
 bool eh_minha_vez_na_fila(FilaPrioridade* fila, int aviao_id) {
-    if (!fila) return true; // Se não há fila, todos podem tentar
-    
-    // Se a fila está vazia, qualquer avião pode tentar
-    if (fila->tamanho == 0) return true;
-    
-    // Verifica se é o primeiro da fila
-    return fila->avioes_ids[0] == aviao_id; 
+    if (!fila) return true; 
+    pthread_mutex_lock(&fila->mutex);
+
+
+    if (fila->tamanho == 0) {
+        pthread_mutex_unlock(&fila->mutex);
+        return true;
+    }
+
+
+    bool resultado = fila->avioes_ids[0] == aviao_id;
+    pthread_mutex_unlock(&fila->mutex);
+    return resultado;
 }
 
 int obter_posicao_na_fila(FilaPrioridade* fila, int aviao_id) {
@@ -512,10 +518,10 @@ void finalizar_simulacao(SimulacaoAeroporto* sim) {
     // Salvar métricas finais em arquivo
     time_t tempo_atual = time(NULL);
     struct tm* info_tempo = localtime(&tempo_atual);
-    char nome_arquivo[100];
-    strftime(nome_arquivo, sizeof(nome_arquivo), "metricas_finais_%Y%m%d_%H%M%S.txt", info_tempo);
+    //char nome_arquivo[100];
+   // strftime(nome_arquivo, sizeof(nome_arquivo), "metricas_finais.txt");
     
-    salvar_metricas_finais(&sim->metricas, nome_arquivo);
+    salvar_metricas_finais(&sim->metricas, "metricas_finais.txt");
 }
 
 void destruir_recursos(RecursosAeroporto* recursos) {
