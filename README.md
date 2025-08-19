@@ -29,7 +29,7 @@ As threads de aviões passam pelas seguintes fases, solicitando recursos em orde
 Para obter uma cópia local do projeto, clone o repositório utilizando o comando abaixo:
 
 ```bash
-git clone [https://github.com/ChristianKringel/trabalho-final-so.git](https://github.com/ChristianKringel/trabalho-final-so.git)
+git clone https://github.com/ChristianKringel/trabalho-final-so.git
 ```
 
 O projeto pode ser compilado e executado usando o `Makefile` fornecido.
@@ -66,4 +66,8 @@ Para remover os arquivos objeto e o executável gerados, execute o comando:
 
 ```bash
 make clean
+```
+## Desenvolvido por: 
+[Christian Kringel](https://github.com/ChristianKringel) 
+[Vinicius Hallmann](https://github.com/ViniHallmann)
 
