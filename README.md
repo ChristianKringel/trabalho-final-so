@@ -1,5 +1,4 @@
 # Simulador de Controle de Tráfego Aéreo
-https://docs.github.com/copilot/concepts/coding-agent/coding-agent
 Este é um projeto de simulação em C de um sistema de controle de tráfego aéreo, utilizando threads POSIX (pthreads) para gerenciar o fluxo de aviões em um aeroporto internacional de alta demanda. O principal objetivo é demonstrar e resolver os problemas de deadlock e *starvation* (inanição) que podem ocorrer na alocação de recursos limitados.
 
 ## Recursos do Aeroporto
@@ -67,3 +66,4 @@ Para remover os arquivos objeto e o executável gerados, execute o comando:
 
 ```bash
 make clean
+
