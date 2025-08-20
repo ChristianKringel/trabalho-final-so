@@ -205,10 +205,10 @@ int solicitar_recurso_individual(SimulacaoAeroporto* sim, Aviao* aviao, TipoRecu
                 default:             pthread_cond_wait(&recursos->cond_banco, &recursos->mutex_banco); break;
             }
         } else {
-            // Se o recurso está LIVRE, mas o banqueiro negou (por segurança ou ordem de fila),
-            // NUNCA devemos usar cond_wait. Liberamos o mutex, dormimos um pouco e tentamos de novo.
+            // Se o recurso está LIVRE, mas o banqueiro negou.
+            // Liberamos o mutex, dormimos um pouco e tentamos de novo.
             pthread_mutex_unlock(&recursos->mutex_banco);
-            usleep(10000 + (rand() % 5000)); // Cede a vez para evitar Livelock
+            usleep(10000 + (rand() % 5000));
             pthread_mutex_lock(&recursos->mutex_banco);
         }
         
@@ -236,7 +236,7 @@ int solicitar_recurso_individual(SimulacaoAeroporto* sim, Aviao* aviao, TipoRecu
         if (tipo_recurso == RECURSO_TORRE) atualizar_prioridade_na_fila(&recursos->fila_torres, aviao->id, nova_prioridade);
     }
 
-    // Se saiu do while, conseguiu o recurso. Agora, atualiza o estado do avião.
+    // Conseguiu o recurso. Agora, atualiza o estado do avião.
     switch (tipo_recurso) {
         case RECURSO_PISTA:
             for (int i = 0; i < recursos->total_pistas; i++) {
