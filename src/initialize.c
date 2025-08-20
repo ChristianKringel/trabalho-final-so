@@ -116,7 +116,7 @@ SimulacaoAeroporto* inicializar_simulacao(int pistas, int portoes, int torres, i
     pthread_cond_init(&sim->cond_pausado, NULL);
     sim->ultimo_evento_global = time(NULL);
     pthread_mutex_init(&sim->mutex_ultimo_evento, NULL);
-
+    pthread_mutex_init(&sim->recursos.mutex_operacao_inicio, NULL);
     create_log_file();
     return sim;
 }

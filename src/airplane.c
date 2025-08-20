@@ -36,12 +36,15 @@ int pouso_internacional_atomico(Aviao* aviao, SimulacaoAeroporto* sim) {
         log_evento_ui(sim, aviao, LOG_ERROR, "ABORTOU: Avião já havia crashed");
         return 0;
     }
+    pthread_mutex_lock(&sim->recursos.mutex_operacao_inicio);
 
     log_evento_ui(sim, aviao, LOG_INFO, "Solicitando PISTA...");
     if (solicitar_recurso_individual(sim, aviao, RECURSO_PISTA) != 0) {
         log_evento_ui(sim, aviao, LOG_ERROR, "FALHA ao alocar PISTA para pouso.");
+        pthread_mutex_unlock(&sim->recursos.mutex_operacao_inicio); 
         return 0;
     }
+    
 
     log_evento_ui(sim, aviao, LOG_SUCCESS, "Pista %d alocada.", aviao->pista_alocada);
 
@@ -53,7 +56,7 @@ int pouso_internacional_atomico(Aviao* aviao, SimulacaoAeroporto* sim) {
     }
 
     log_evento_ui(sim, aviao, LOG_SUCCESS, "Torre (slot %d) alocada.", aviao->torre_alocada - 1);
-
+    pthread_mutex_unlock(&sim->recursos.mutex_operacao_inicio);
     aviao->estado = POUSANDO;
     log_evento_ui(sim, aviao, LOG_SUCCESS, "POUSANDO - Pista %d, Torre slot %d", aviao->pista_alocada, aviao->torre_alocada - 1);
     sim->metricas.operacoes_pouso++;
@@ -74,10 +77,12 @@ int pouso_domestico_atomico(Aviao* aviao, SimulacaoAeroporto* sim) {
         log_evento_ui(sim, aviao, LOG_ERROR, "ABORTOU: Avião já havia crashed");
         return 0;
     }
+    pthread_mutex_lock(&sim->recursos.mutex_operacao_inicio);
 
     log_evento_ui(sim, aviao, LOG_INFO, "Solicitando TORRE...");
     if (solicitar_recurso_individual(sim, aviao, RECURSO_TORRE) != 0) {
         log_evento_ui(sim, aviao, LOG_ERROR, "FALHA ao alocar TORRE para pouso.");
+        pthread_mutex_unlock(&sim->recursos.mutex_operacao_inicio);
         return 0;
     }
 
@@ -91,7 +96,7 @@ int pouso_domestico_atomico(Aviao* aviao, SimulacaoAeroporto* sim) {
     }
 
     log_evento_ui(sim, aviao, LOG_SUCCESS, "Pista %d alocada.", aviao->pista_alocada);
-
+    pthread_mutex_unlock(&sim->recursos.mutex_operacao_inicio);
     aviao->estado = POUSANDO;
     log_evento_ui(sim, aviao, LOG_SUCCESS, "POUSANDO - Pista %d, Torre slot %d", aviao->pista_alocada, aviao->torre_alocada - 1);
     sim->metricas.operacoes_pouso++;
@@ -107,10 +112,11 @@ int pouso_domestico_atomico(Aviao* aviao, SimulacaoAeroporto* sim) {
 
 int desembarque_internacional_atomico(Aviao* aviao, SimulacaoAeroporto* sim) {
     log_evento_ui(sim, aviao, LOG_INFO, "Iniciando desembarque internacional (SEQUENCIAL)");
-
+    pthread_mutex_lock(&sim->recursos.mutex_operacao_inicio);
     log_evento_ui(sim, aviao, LOG_INFO, "Solicitando PORTÃO...");
     if (solicitar_recurso_individual(sim, aviao, RECURSO_PORTAO) != 0) {
         log_evento_ui(sim, aviao, LOG_ERROR, "FALHA ao alocar PORTÃO para desembarque.");
+        pthread_mutex_unlock(&sim->recursos.mutex_operacao_inicio);
         return 0;
     }
     log_evento_ui(sim, aviao, LOG_SUCCESS, "Portão %d alocado.", aviao->portao_alocado);
@@ -122,7 +128,7 @@ int desembarque_internacional_atomico(Aviao* aviao, SimulacaoAeroporto* sim) {
         return 0;
     }
     log_evento_ui(sim, aviao, LOG_SUCCESS, "Torre (slot %d) alocada.", aviao->torre_alocada - 1);
-
+    pthread_mutex_unlock(&sim->recursos.mutex_operacao_inicio);
     aviao->estado = DESEMBARCANDO;
     log_evento_ui(sim, aviao, LOG_SUCCESS, "DESEMBARCANDO - Portão %d", aviao->portao_alocado);
     sim->metricas.operacoes_desembarque++;
@@ -138,14 +144,14 @@ int desembarque_internacional_atomico(Aviao* aviao, SimulacaoAeroporto* sim) {
 
 int desembarque_domestico_atomico(Aviao* aviao, SimulacaoAeroporto* sim) {
     log_evento_ui(sim, aviao, LOG_INFO, "Iniciando desembarque doméstico (SEQUENCIAL)");
-
+    pthread_mutex_lock(&sim->recursos.mutex_operacao_inicio);
     log_evento_ui(sim, aviao, LOG_INFO, "Solicitando TORRE...");
     if (solicitar_recurso_individual(sim, aviao, RECURSO_TORRE) != 0) {
         log_evento_ui(sim, aviao, LOG_ERROR, "FALHA ao alocar TORRE para desembarque.");
+        pthread_mutex_unlock(&sim->recursos.mutex_operacao_inicio);
         return 0;
     }
     log_evento_ui(sim, aviao, LOG_SUCCESS, "Torre (slot %d) alocada.", aviao->torre_alocada - 1);
-
     log_evento_ui(sim, aviao, LOG_INFO, "Solicitando PORTÃO...");
     if (solicitar_recurso_individual(sim, aviao, RECURSO_PORTAO) != 0) {
         log_evento_ui(sim, aviao, LOG_ERROR, "FALHA ao alocar PORTÃO. Liberando torre...");
@@ -154,7 +160,7 @@ int desembarque_domestico_atomico(Aviao* aviao, SimulacaoAeroporto* sim) {
     }
     log_evento_ui(sim, aviao, LOG_SUCCESS, "Portão %d alocado.", aviao->portao_alocado);
 
-
+    pthread_mutex_unlock(&sim->recursos.mutex_operacao_inicio);
     aviao->estado = DESEMBARCANDO;
     log_evento_ui(sim, aviao, LOG_SUCCESS, "DESEMBARCANDO - Portão %d", aviao->portao_alocado);
     sim->metricas.operacoes_desembarque++;
@@ -170,14 +176,14 @@ int desembarque_domestico_atomico(Aviao* aviao, SimulacaoAeroporto* sim) {
 
 int decolagem_internacional_atomica(Aviao* aviao, SimulacaoAeroporto* sim) {
     log_evento_ui(sim, aviao, LOG_INFO, "Iniciando decolagem internacional (SEQUENCIAL)");
-
+    pthread_mutex_lock(&sim->recursos.mutex_operacao_inicio);
     log_evento_ui(sim, aviao, LOG_INFO, "Solicitando PORTÃO...");
     if (solicitar_recurso_individual(sim, aviao, RECURSO_PORTAO) != 0) {
         log_evento_ui(sim, aviao, LOG_ERROR, "FALHA ao alocar PORTÃO para decolagem.");
+        pthread_mutex_unlock(&sim->recursos.mutex_operacao_inicio);
         return 0;
     }
     log_evento_ui(sim, aviao, LOG_SUCCESS, "Portão %d alocado.", aviao->portao_alocado);
-
     log_evento_ui(sim, aviao, LOG_INFO, "Solicitando PISTA...");
     if (solicitar_recurso_individual(sim, aviao, RECURSO_PISTA) != 0) {
         log_evento_ui(sim, aviao, LOG_ERROR, "FALHA ao alocar PISTA. Liberando portão...");
@@ -195,11 +201,11 @@ int decolagem_internacional_atomica(Aviao* aviao, SimulacaoAeroporto* sim) {
     }
     log_evento_ui(sim, aviao, LOG_SUCCESS, "Torre (slot %d) alocada.", aviao->torre_alocada - 1);
 
-
+    pthread_mutex_unlock(&sim->recursos.mutex_operacao_inicio);
     aviao->estado = DECOLANDO;
     log_evento_ui(sim, aviao, LOG_SUCCESS, "DECOLANDO - Pista %d, Portão %d, Torre slot %d", aviao->pista_alocada, aviao->portao_alocado, aviao->torre_alocada - 1);
     sim->metricas.operacoes_decolagem++;
-    usleep(2000000); // 1.5 segundos
+    usleep(2000000); // 2 segundos
 
     liberar_portao(sim, aviao->id, aviao->portao_alocado);
     liberar_pista(sim, aviao->id, aviao->pista_alocada);
@@ -212,14 +218,14 @@ int decolagem_internacional_atomica(Aviao* aviao, SimulacaoAeroporto* sim) {
 
 int decolagem_domestica_atomica(Aviao* aviao, SimulacaoAeroporto* sim) {
     log_evento_ui(sim, aviao, LOG_INFO, "Iniciando decolagem doméstica (SEQUENCIAL)");
-
+    pthread_mutex_lock(&sim->recursos.mutex_operacao_inicio);
     log_evento_ui(sim, aviao, LOG_INFO, "Solicitando TORRE...");
     if (solicitar_recurso_individual(sim, aviao, RECURSO_TORRE) != 0) {
         log_evento_ui(sim, aviao, LOG_ERROR, "FALHA ao alocar TORRE para decolagem.");
+        pthread_mutex_unlock(&sim->recursos.mutex_operacao_inicio);
         return 0;
     }
     log_evento_ui(sim, aviao, LOG_SUCCESS, "Torre (slot %d) alocada.", aviao->torre_alocada - 1);
-
     log_evento_ui(sim, aviao, LOG_INFO, "Solicitando PORTÃO...");
     if (solicitar_recurso_individual(sim, aviao, RECURSO_PORTAO) != 0) {
         log_evento_ui(sim, aviao, LOG_ERROR, "FALHA ao alocar PORTÃO. Liberando torre...");
@@ -236,11 +242,11 @@ int decolagem_domestica_atomica(Aviao* aviao, SimulacaoAeroporto* sim) {
         return 0;
     }
     log_evento_ui(sim, aviao, LOG_SUCCESS, "Pista %d alocada.", aviao->pista_alocada);
-
+    pthread_mutex_unlock(&sim->recursos.mutex_operacao_inicio);
     aviao->estado = DECOLANDO;
     log_evento_ui(sim, aviao, LOG_SUCCESS, "DECOLANDO - Pista %d, Portão %d, Torre slot %d", aviao->pista_alocada, aviao->portao_alocado, aviao->torre_alocada - 1);
     sim->metricas.operacoes_decolagem++;
-    usleep(1500000); // 1.5 segundos
+    usleep(2000000); // 2 segundos
 
     liberar_portao(sim, aviao->id, aviao->portao_alocado);
     liberar_pista(sim, aviao->id, aviao->pista_alocada);
@@ -263,42 +269,67 @@ void* thread_aviao(void* arg) {
     SimulacaoAeroporto* sim = args->sim;
     int sucesso = 0;
 
-    // Fase 1: Pouso
-    if (aviao->tipo == VOO_INTERNACIONAL) {
-        sucesso = pouso_internacional_atomico(aviao, sim);
-    } else {
-        sucesso = pouso_domestico_atomico(aviao, sim);
+    // --- INÍCIO DA CORREÇÃO ---
+
+    // Fase 1: Pouso - Tenta até conseguir
+    while (!sucesso && sim->ativa && !aviao->sacrificado) {
+        if (aviao->tipo == VOO_INTERNACIONAL) {
+            sucesso = pouso_internacional_atomico(aviao, sim);
+        } else {
+            sucesso = pouso_domestico_atomico(aviao, sim);
+        }
+
+        if (!sucesso) {
+            if (tratar_deadlock_e_falhas(aviao, sim, args, sucesso, "pouso") != 0) {
+                return NULL; // Aborta se tratar_deadlock detectar falha irrecuperável
+            }
+        }
     }
     
-    if (tratar_deadlock_e_falhas(aviao, sim, args, sucesso, "pouso") != 0) {
-        return NULL;
+    // Reseta a flag de sucesso para a próxima fase
+    sucesso = 0;
+
+    // Fase 2: Desembarque - Tenta até conseguir
+    while (!sucesso && sim->ativa && !aviao->sacrificado) {
+        if (aviao->tipo == VOO_INTERNACIONAL) {
+            sucesso = desembarque_internacional_atomico(aviao, sim);
+        } else {
+            sucesso = desembarque_domestico_atomico(aviao, sim);
+        }
+
+        if (!sucesso) {
+            if (tratar_deadlock_e_falhas(aviao, sim, args, sucesso, "desembarque") != 0) {
+                return NULL;
+            }
+        }
     }
 
-    // Fase 2: Desembarque
-    if (aviao->tipo == VOO_INTERNACIONAL) {
-        sucesso = desembarque_internacional_atomico(aviao, sim);
-    } else {
-        sucesso = desembarque_domestico_atomico(aviao, sim);
+    // Reseta a flag de sucesso para a próxima fase
+    sucesso = 0;
+
+    // Fase 3: Decolagem - Tenta até conseguir
+    while (!sucesso && sim->ativa && !aviao->sacrificado) {
+        if (aviao->tipo == VOO_INTERNACIONAL) {
+            sucesso = decolagem_internacional_atomica(aviao, sim);
+        } else {
+            sucesso = decolagem_domestica_atomica(aviao, sim);
+        }
+
+        if (!sucesso) {
+            if (tratar_deadlock_e_falhas(aviao, sim, args, sucesso, "decolagem") != 0) {
+                return NULL;
+            }
+        }
     }
 
-    if (tratar_deadlock_e_falhas(aviao, sim, args, sucesso, "desembarque") != 0) {
-        return NULL;
-    }
+    // --- FIM DA CORREÇÃO ---
 
-    // Fase 3: Decolagem
-    if (aviao->tipo == VOO_INTERNACIONAL) {
-        sucesso = decolagem_internacional_atomica(aviao, sim);
-    } else {
-        sucesso = decolagem_domestica_atomica(aviao, sim);
+    // Apenas se todas as fases foram concluídas com sucesso
+    if (sim->ativa && !aviao->sacrificado) {
+        log_evento_ui(sim, aviao, LOG_SUCCESS, "completou seu ciclo de vida com SUCESSO.");
+        atualizar_estado_aviao(sim, aviao, FINALIZADO_SUCESSO);
+        incrementar_aviao_sucesso(&sim->metricas);
     }
-    
-    if (tratar_deadlock_e_falhas(aviao, sim, args, sucesso, "decolagem") != 0) {
-        return NULL;
-    }
-
-    log_evento_ui(sim, aviao, LOG_SUCCESS, "completou seu ciclo de vida com SUCESSO.");
-    atualizar_estado_aviao(sim, aviao, FINALIZADO_SUCESSO);
-    incrementar_aviao_sucesso(&sim->metricas);
     
     free(args);
     return NULL;
@@ -382,27 +413,17 @@ void* criador_avioes(void* arg) {
 
 int tratar_deadlock_e_falhas(Aviao* aviao, SimulacaoAeroporto* sim, void* args, int sucesso, const char* fase) {
     if (!aviao || !sim || !fase) {
-        return -1; // Erro nos parâmetros
+        return -1;
     }
 
-    if (aviao->sacrificado) {
-        log_evento_ui(sim, aviao, LOG_ERROR, "Foi SACRIFICADO durante %s para resolver deadlock.", fase);
-        atualizar_estado_aviao(sim, aviao, FALHA_DEADLOCK);
-        incrementar_aviao_deadlock(&sim->metricas);
-
-        if (aviao->pista_alocada != -1) {
-            liberar_pista(sim, aviao->id, aviao->pista_alocada);
-        }
-        if (aviao->portao_alocado != -1) {
-            liberar_portao(sim, aviao->id, aviao->portao_alocado);
-        }
-        if (aviao->torre_alocada > 0) {
-            liberar_torre(sim, aviao->id);
-        }
-        
-        if (args) free(args);
-        return 1;
-    }
+    time_t tempo_atual = time(NULL);
+    if (verificar_starvation(aviao, tempo_atual)) {
+    log_evento_ui(sim, aviao, LOG_ERROR, "STARVATION detectada durante %s.", fase);
+    atualizar_estado_aviao(sim, aviao, FALHA_STARVATION);
+    incrementar_aviao_falha_starvation(&sim->metricas);
+    if (args) free(args);
+    return 1; // <-- RETORNA 1 PARA PARAR A THREAD
+}
 
     if (!sucesso) {
         log_evento_ui(sim, aviao, LOG_ERROR, "FALHA durante %s. Tentando novamente...", fase);

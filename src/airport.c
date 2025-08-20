@@ -178,6 +178,7 @@ int solicitar_recurso_individual(SimulacaoAeroporto* sim, Aviao* aviao, TipoRecu
     int resultado_banqueiro = -1;
 
     while ((resultado_banqueiro = banker_request_resources(recursos, aviao->id - 1, pedido)) != 0) {
+        
         if (!adicionado_na_fila) {
             int prioridade = calcular_prioridade_dinamica(aviao, time(NULL), sim);
             
@@ -188,39 +189,30 @@ int solicitar_recurso_individual(SimulacaoAeroporto* sim, Aviao* aviao, TipoRecu
             adicionado_na_fila = true;
         }
 
-        if (resultado_banqueiro == -4) {
-            log_evento_ui(sim, aviao, LOG_WARNING, "Banqueiro negou. Cedendo a vez para evitar live-lock.");
+        // --- INÍCIO DA LÓGICA CRÍTICA DE ESPERA ---
+        
+        bool recurso_fisicamente_ocupado = false;
+        if (resultado_banqueiro == -3) { // O banqueiro já nos disse que o recurso não está disponível
+             recurso_fisicamente_ocupado = true;
+        }
 
-            int prioridade_atual = aviao->prioridade_dinamica;
-
-            if (tipo_recurso == RECURSO_PISTA) remover_da_fila_prioridade(&recursos->fila_pistas, aviao->id);
-            if (tipo_recurso == RECURSO_PORTAO) remover_da_fila_prioridade(&recursos->fila_portoes, aviao->id);
-            if (tipo_recurso == RECURSO_TORRE) remover_da_fila_prioridade(&recursos->fila_torres, aviao->id);
-
+        if (recurso_fisicamente_ocupado) {
+            // Se o recurso está OCUPADO, é correto esperar por um sinal de liberação.
+            switch (tipo_recurso) {
+                case RECURSO_PISTA:  pthread_cond_wait(&recursos->cond_pistas, &recursos->mutex_banco); break;
+                case RECURSO_PORTAO: pthread_cond_wait(&recursos->cond_portoes, &recursos->mutex_banco); break;
+                case RECURSO_TORRE:  pthread_cond_wait(&recursos->cond_torres, &recursos->mutex_banco); break;
+                default:             pthread_cond_wait(&recursos->cond_banco, &recursos->mutex_banco); break;
+            }
+        } else {
+            // Se o recurso está LIVRE, mas o banqueiro negou (por segurança ou ordem de fila),
+            // NUNCA devemos usar cond_wait. Liberamos o mutex, dormimos um pouco e tentamos de novo.
             pthread_mutex_unlock(&recursos->mutex_banco);
-            usleep(5000); // 50ms
+            usleep(10000 + (rand() % 5000)); // Cede a vez para evitar Livelock
             pthread_mutex_lock(&recursos->mutex_banco);
-
-            if (tipo_recurso == RECURSO_PISTA) inserir_na_fila_prioridade(&recursos->fila_pistas, aviao->id, prioridade_atual);
-            if (tipo_recurso == RECURSO_PORTAO) inserir_na_fila_prioridade(&recursos->fila_portoes, aviao->id, prioridade_atual);
-            if (tipo_recurso == RECURSO_TORRE) inserir_na_fila_prioridade(&recursos->fila_torres, aviao->id, prioridade_atual);
         }
-
-        switch (tipo_recurso) {
-            case RECURSO_PISTA:
-                pthread_cond_wait(&recursos->cond_pistas, &recursos->mutex_banco);
-                break;
-            case RECURSO_PORTAO:
-                pthread_cond_wait(&recursos->cond_portoes, &recursos->mutex_banco);
-                break;
-            case RECURSO_TORRE:
-                pthread_cond_wait(&recursos->cond_torres, &recursos->mutex_banco);
-                break;
-            default:
-                pthread_cond_wait(&recursos->cond_banco, &recursos->mutex_banco);
-                break;
-        }
-
+        
+        // --- FIM DA LÓGICA CRÍTICA DE ESPERA ---
 
         if (aviao->sacrificado) {
             log_evento_ui(sim, aviao, LOG_ERROR, "Fui sacrificado, abortando operação.");
@@ -244,6 +236,7 @@ int solicitar_recurso_individual(SimulacaoAeroporto* sim, Aviao* aviao, TipoRecu
         if (tipo_recurso == RECURSO_TORRE) atualizar_prioridade_na_fila(&recursos->fila_torres, aviao->id, nova_prioridade);
     }
 
+    // Se saiu do while, conseguiu o recurso. Agora, atualiza o estado do avião.
     switch (tipo_recurso) {
         case RECURSO_PISTA:
             for (int i = 0; i < recursos->total_pistas; i++) {
@@ -275,3 +268,4 @@ int solicitar_recurso_individual(SimulacaoAeroporto* sim, Aviao* aviao, TipoRecu
     pthread_mutex_unlock(&recursos->mutex_banco);
     return 0;
 }
+

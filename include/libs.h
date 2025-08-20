@@ -93,6 +93,8 @@ typedef struct {
     pthread_mutex_t mutex_banco;
     pthread_cond_t cond_banco;
 
+    pthread_mutex_t mutex_operacao_inicio; 
+
 } RecursosAeroporto;
 
 // Estrutura para dados de um aviao
