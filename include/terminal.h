@@ -7,7 +7,6 @@
 #include "log_panel.h"
 #include "status_panel.h"
 #include "window_utils.h"
-#include <locale.h>
 
 #ifndef TERMINAL_H
 #define TERMINAL_H

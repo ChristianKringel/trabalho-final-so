@@ -345,7 +345,7 @@ void* criador_avioes(void* arg) {
         
         if (!sim->ativa) break;
 
-        usleep(1500000 + (rand() % 200000)); 
+        usleep(500000 + (rand() % 200000)); 
 
         pthread_mutex_lock(&sim->mutex_simulacao);
 
@@ -364,12 +364,12 @@ void* criador_avioes(void* arg) {
             }
         }
 
-        if (avioes_ativos >= 6) {
-            log_evento_ui(sim, NULL, LOG_SYSTEM, "Limite de 8 aviões simultâneos atingido (%d ativos). Aguardando...", avioes_ativos);
-            pthread_mutex_unlock(&sim->mutex_simulacao);
-            usleep(1000000);
-            continue;
-        }
+        // if (avioes_ativos >= 6) {
+        //     log_evento_ui(sim, NULL, LOG_SYSTEM, "Limite de 8 aviões simultâneos atingido (%d ativos). Aguardando...", avioes_ativos);
+        //     pthread_mutex_unlock(&sim->mutex_simulacao);
+        //     usleep(1000000);
+        //     continue;
+        // }
 
         Aviao* novo_aviao = &sim->avioes[proximo_id - 1];
         
