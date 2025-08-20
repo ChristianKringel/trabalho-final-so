@@ -19,7 +19,7 @@
 #define MAX_PORTOES 5
 #define MAX_TORRES 1
 #define MAX_OP_TORRE 2
-#define MAX_AVIOES 50
+#define MAX_AVIOES 25
 #define MAX_TEMPO_SIM 240
 #define N_RESOURCES 3
 
@@ -92,6 +92,8 @@ typedef struct {
     Banqueiro banco;
     pthread_mutex_t mutex_banco;
     pthread_cond_t cond_banco;
+
+    pthread_mutex_t mutex_operacao_inicio; 
 
 } RecursosAeroporto;
 

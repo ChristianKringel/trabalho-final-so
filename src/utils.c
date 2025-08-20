@@ -116,15 +116,13 @@ int obter_proximo_da_fila_prioridade(FilaPrioridade* fila) {
 }
 
 bool eh_minha_vez_na_fila(FilaPrioridade* fila, int aviao_id) {
-    if (!fila) return true; 
+    if (!fila) return true;
     pthread_mutex_lock(&fila->mutex);
-
 
     if (fila->tamanho == 0) {
         pthread_mutex_unlock(&fila->mutex);
         return true;
     }
-
 
     bool resultado = fila->avioes_ids[0] == aviao_id;
     pthread_mutex_unlock(&fila->mutex);
@@ -429,15 +427,58 @@ void tratar_aviao_em_alerta(SimulacaoAeroporto* sim, Aviao* aviao) {
 void* monitorar_avioes(void* arg) {
     SimulacaoAeroporto* sim = (SimulacaoAeroporto*)arg;
     int ciclo_contador = 0;
-    const int TEMPO_INATIVIDADE_DEADLOCK = 10; // Sacrifício após 10s de inatividade
+    const int TEMPO_INATIVIDADE_DEADLOCK = 30; // Sacrifício após 10s de inatividade
+    const int TEMPO_AUTO_ENCERRAMENTO = 5; // Auto-encerramento após 5s sem aviões ativos
+    
+    time_t inicio_inatividade_total = 0;
+    bool primeira_deteccao_inatividade = true;
 
     log_evento_ui(sim, NULL, LOG_DEBUG, "Monitor de Deadlocks INICIADO.");
 
     while (sim->ativa) {
         if (!sim->ativa) break;
 
-        // A verificação de aging e atualização de prioridades continua normal.
         verificar_avioes_em_espera(sim);
+
+        // Verificar se todos os aviões estão inativos
+        bool tem_avioes_ativos = false;
+        pthread_mutex_lock(&sim->mutex_simulacao);
+        for (int i = 0; i < sim->metricas.total_avioes_criados && i < sim->max_avioes; i++) {
+            if (sim->avioes[i].id > 0) {
+                EstadoAviao estado = sim->avioes[i].estado;
+                if (estado != FINALIZADO_SUCESSO && 
+                    estado != FALHA_STARVATION && 
+                    estado != FALHA_DEADLOCK) {
+                    tem_avioes_ativos = true;
+                    break;
+                }
+            }
+        }
+        pthread_mutex_unlock(&sim->mutex_simulacao);
+
+        // Se não há aviões ativos e há aviões criados, começar contagem
+        if (!tem_avioes_ativos && sim->metricas.total_avioes_criados > 0) {
+            if (primeira_deteccao_inatividade) {
+                inicio_inatividade_total = time(NULL);
+                primeira_deteccao_inatividade = false;
+                log_evento_ui(sim, NULL, LOG_SYSTEM, "Todos os avioes finalizaram. Auto-encerramento em %d segundos...", TEMPO_AUTO_ENCERRAMENTO);
+            } else {
+                time_t tempo_inativo = time(NULL) - inicio_inatividade_total;
+                int tempo_restante = TEMPO_AUTO_ENCERRAMENTO - tempo_inativo;
+                
+                if (tempo_restante > 0) {
+                    log_evento_ui(sim, NULL, LOG_SYSTEM, "Auto-encerramento em %d segundos (pressione 'q' para cancelar)...", tempo_restante);
+                } else {
+                    log_evento_ui(sim, NULL, LOG_SYSTEM, "Auto-encerramento: %d segundos sem avioes ativos.", TEMPO_AUTO_ENCERRAMENTO);
+                    log_evento_ui(sim, NULL, LOG_SYSTEM, "===== SIMULACAO FINALIZADA AUTOMATICAMENTE =====");
+                    finalizar_simulacao(sim);
+                    break;
+                }
+            }
+        } else if (tem_avioes_ativos) {
+            // Reset da contagem se ainda há aviões ativos
+            primeira_deteccao_inatividade = true;
+        }
 
         pthread_mutex_lock(&sim->mutex_ultimo_evento);
         time_t ultimo_evento = sim->ultimo_evento_global;
@@ -446,24 +487,20 @@ void* monitorar_avioes(void* arg) {
         time_t agora = time(NULL);
         time_t tempo_desde_evento = agora - ultimo_evento;
 
-        // Log de diagnóstico: imprima o status do monitor a cada 3 segundos.
         if (ciclo_contador % 3 == 0) {
             log_evento_ui(sim, NULL, LOG_DEBUG, "Monitor: Inatividade do sistema: %ld segundos.", tempo_desde_evento);
         }
 
-        // Verifica se o tempo de inatividade excedeu o limite.
         if (tempo_desde_evento > TEMPO_INATIVIDADE_DEADLOCK) {
             log_evento_ui(sim, NULL, LOG_ERROR, "Monitor: Limite de inatividade (%ds) ATINGIDO! Tentando recuperação.", TEMPO_INATIVIDADE_DEADLOCK);
             recuperar_deadlock_por_sacrificio(sim);
             
-            // Reinicia o temporizador APÓS a tentativa de recuperação para evitar acionamentos múltiplos.
             pthread_mutex_lock(&sim->mutex_ultimo_evento);
             sim->ultimo_evento_global = time(NULL);
             pthread_mutex_unlock(&sim->mutex_ultimo_evento);
         }
 
-        // A verificação de recursos órfãos continua útil.
-        if (ciclo_contador % 5 == 0) { // A cada 5 segundos
+        if (ciclo_contador % 5 == 0) { 
              verificar_recursos_orfaos(sim);
         }
         
@@ -498,23 +535,31 @@ void finalizar_simulacao(SimulacaoAeroporto* sim) {
         return; 
     }
 
+    // Marca a simulação como inativa
     sim->ativa = 0;
     
+    // Acorda todas as threads que podem estar bloqueadas
     pthread_mutex_lock(&sim->mutex_simulacao);
     pthread_cond_broadcast(&sim->recursos.cond_pistas);
     pthread_cond_broadcast(&sim->recursos.cond_portoes);
     pthread_cond_broadcast(&sim->recursos.cond_torres);
     pthread_mutex_unlock(&sim->mutex_simulacao);
     
-
+    // Desbloqueio de pausa se estiver pausado
     pthread_mutex_lock(&sim->mutex_pausado);
     sim->pausado = false;
-    
     pthread_cond_broadcast(&sim->cond_pausado);
     pthread_mutex_unlock(&sim->mutex_pausado);
     
-    time_t tempo_atual = time(NULL);
-    struct tm* info_tempo = localtime(&tempo_atual);
+    // Atualiza timestamp para evitar detecção de deadlock
+    pthread_mutex_lock(&sim->mutex_ultimo_evento);
+    sim->ultimo_evento_global = time(NULL);
+    pthread_mutex_unlock(&sim->mutex_ultimo_evento);
+    
+    // Pequena pausa para permitir que threads processem a mudança
+    usleep(100000); // 100ms
+    
+    // Salvar métricas finais em arquivo
     salvar_metricas_finais(&sim->metricas, "metricas_finais.txt");
 }
 
@@ -552,6 +597,7 @@ void liberar_memoria(SimulacaoAeroporto* sim) {
     free(sim);
 }
 
+// REVISAR // 
 int verificar_starvation(Aviao* aviao, time_t tempo_atual) {
     if (aviao == NULL) {
         return 0; 
@@ -588,10 +634,8 @@ int detectar_deadlock(SimulacaoAeroporto* sim) {
         }
         
         total_avioes_ativos++;
-        
-        // Conta aviões em espera por recursos
+
         if (aviao->estado == AGUARDANDO_POUSO || aviao->estado == AGUARDANDO_DECOLAGEM) {
-            // Verifica se está na fila de torres (com lock)
             pthread_mutex_lock(&sim->recursos.fila_torres.mutex);
             for (int j = 0; j < sim->recursos.fila_torres.tamanho; j++) {
                 if (sim->recursos.fila_torres.avioes_ids[j] == aviao->id) {
@@ -600,8 +644,7 @@ int detectar_deadlock(SimulacaoAeroporto* sim) {
                 }
             }
             pthread_mutex_unlock(&sim->recursos.fila_torres.mutex);
-            
-            // Verifica se está na fila de pistas (com lock)
+
             pthread_mutex_lock(&sim->recursos.fila_pistas.mutex);
             for (int j = 0; j < sim->recursos.fila_pistas.tamanho; j++) {
                 if (sim->recursos.fila_pistas.avioes_ids[j] == aviao->id) {
@@ -613,7 +656,6 @@ int detectar_deadlock(SimulacaoAeroporto* sim) {
         }
         
         if (aviao->estado == AGUARDANDO_DESEMBARQUE || aviao->estado == AGUARDANDO_DECOLAGEM) {
-            // Verifica se está na fila de portões (com lock)
             pthread_mutex_lock(&sim->recursos.fila_portoes.mutex);
             for (int j = 0; j < sim->recursos.fila_portoes.tamanho; j++) {
                 if (sim->recursos.fila_portoes.avioes_ids[j] == aviao->id) {
@@ -623,35 +665,28 @@ int detectar_deadlock(SimulacaoAeroporto* sim) {
             }
             pthread_mutex_unlock(&sim->recursos.fila_portoes.mutex);
         }
-        
-        // Log de starvation sem marcar como falha - avião continua tentando
+
         if (aviao->estado == AGUARDANDO_POUSO || aviao->estado == AGUARDANDO_DECOLAGEM || 
             aviao->estado == AGUARDANDO_DESEMBARQUE) {
             if (verificar_starvation(aviao, time(NULL))) {
                 log_evento_ui(sim, aviao, LOG_WARNING, "Avião em starvation - continuará tentando alocar recursos");
-                // NÃO marca como falha - avião deve continuar tentando
             }
         }
     }
-    
-    // Detecção de padrão de deadlock circular
-    // Se muitos aviões estão esperando por recursos e os recursos estão ocupados
+
     bool possivel_deadlock = false;
     
-    if (total_avioes_ativos > 3) { // Só considera deadlock com múltiplos aviões
-        // Deadlock com torres: muitos aviões esperando torre, mas torre disponível
+    if (total_avioes_ativos > 3) { 
         if (avioes_esperando_torre > sim->recursos.capacidade_torre && 
             sim->recursos.slots_torre_disponiveis == 0) {
             possivel_deadlock = true;
         }
         
-        // Deadlock circular entre pistas e torres
         if (avioes_esperando_pista > 1 && avioes_esperando_torre > 1 &&
             sim->recursos.pistas_disponiveis == 0 && sim->recursos.slots_torre_disponiveis == 0) {
             possivel_deadlock = true;
         }
         
-        // Deadlock com portões e torres
         if (avioes_esperando_portao > sim->recursos.total_portoes && 
             avioes_esperando_torre > 0 && sim->recursos.portoes_disponiveis == 0) {
             possivel_deadlock = true;
@@ -661,7 +696,6 @@ int detectar_deadlock(SimulacaoAeroporto* sim) {
     if (possivel_deadlock) {
         log_evento_ui(sim, NULL, LOG_ERROR, "Possível DEADLOCK detectado - forçando broadcasts de emergência");
         
-        // Força broadcasts múltiplos em todos os recursos
         pthread_cond_broadcast(&sim->recursos.cond_torres);
         pthread_cond_broadcast(&sim->recursos.cond_pistas);  
         pthread_cond_broadcast(&sim->recursos.cond_portoes);
@@ -703,15 +737,13 @@ const char* estado_para_str(EstadoAviao estado) {
     }
 }
 
-// Calcula o tempo efetivo da simulação descontando pausas
 double calcular_tempo_efetivo_simulacao(SimulacaoAeroporto* sim) {
     if (!sim) return 0.0;
     
     time_t agora = time(NULL);
     double tempo_total = difftime(agora, sim->tempo_inicio);
     double tempo_pausa_atual = 0.0;
-    
-    // Se estamos em pausa, inclui o tempo da pausa atual
+
     if (sim->pausado && sim->inicio_pausa > 0) {
         tempo_pausa_atual = difftime(agora, sim->inicio_pausa);
     }
@@ -719,14 +751,12 @@ double calcular_tempo_efetivo_simulacao(SimulacaoAeroporto* sim) {
     return tempo_total - sim->tempo_pausado_total - tempo_pausa_atual;
 }
 
-// Atualiza o controle de tempo de pausa
 void atualizar_tempo_pausa(SimulacaoAeroporto* sim, bool iniciando_pausa) {
     if (!sim) return;
     
     if (iniciando_pausa) {
         sim->inicio_pausa = time(NULL);
     } else {
-        // Finalizando pausa - acumula o tempo pausado
         if (sim->inicio_pausa > 0) {
             time_t agora = time(NULL);
             sim->tempo_pausado_total += difftime(agora, sim->inicio_pausa);
@@ -735,20 +765,17 @@ void atualizar_tempo_pausa(SimulacaoAeroporto* sim, bool iniciando_pausa) {
     }
 }
 
-// Calcula o tempo efetivo de espera de um avião descontando pausas
 int calcular_tempo_espera_efetivo(SimulacaoAeroporto* sim, time_t inicio_espera) {
     if (!sim || inicio_espera <= 0) return 0;
     
     time_t agora = time(NULL);
     double tempo_total = difftime(agora, inicio_espera);
     double tempo_pausa_descontar = 0.0;
-    
-    // Se estamos pausados agora e a pausa começou depois do início da espera
+
     if (sim->pausado && sim->inicio_pausa > 0 && sim->inicio_pausa >= inicio_espera) {
         tempo_pausa_descontar += difftime(agora, sim->inicio_pausa);
     }
-    
-    // Desconta o tempo total já pausado (aproximação - considera que o avião estava presente durante todas as pausas anteriores)
+
     if (sim->tempo_pausado_total > 0) {
         tempo_pausa_descontar += sim->tempo_pausado_total;
     }
@@ -766,7 +793,7 @@ bool is_safe_state(Banqueiro* banco) {
         work[i] = banco->disponivel[i];
     }
     
-    // 2. Identificar aviões ativos 
+    // 2. Identificar aviões ativos (mais agressivo)
     int avioes_ativos = 0;
     for (int i = 0; i < MAX_AVIOES; i++) {
         finish[i] = true;
@@ -785,10 +812,14 @@ bool is_safe_state(Banqueiro* banco) {
             avioes_ativos++;
         }
     }
-
-    // Com poucos aviões, quase sempre é seguro
-    if (avioes_ativos <= 3) { return true; }
     
+    // 3. OTIMIZAÇÃO: Se há poucos aviões ativos, ser mais permissivo
+    if (avioes_ativos <= 3) {
+        // Com poucos aviões, quase sempre é seguro
+        return true;
+    }
+    
+    // 4. OTIMIZAÇÃO: Verificação rápida de recursos abundantes
     // Se há recursos suficientes para todos os aviões ativos, é seguro
     int recursos_necessarios[N_RESOURCES] = {0};
     for (int i = 0; i < MAX_AVIOES; i++) {
@@ -811,6 +842,7 @@ bool is_safe_state(Banqueiro* banco) {
         return true; // Recursos suficientes para todos
     }
     
+    // 5. Algoritmo tradicional do banqueiro (mais rigoroso)
     bool progresso = true;
     int iteracoes = 0;
     const int MAX_ITERACOES = avioes_ativos * 2; // Evita loops infinitos
@@ -857,14 +889,12 @@ int banker_request_resources(RecursosAeroporto* recursos, int aviao_id, int requ
     
     int aviao_id_original = aviao_id + 1;
     
-    // 1. Verificar se o pedido é válido
     for (int i = 0; i < N_RESOURCES; i++) {
         if (request[i] < 0 || request[i] > recursos->banco.necessidade[aviao_id][i]) {
             return -2;
         }
     }
     
-    // 2. Verificar filas de prioridade
     if (request[RECURSO_PISTA] > 0 && !eh_minha_vez_na_fila(&recursos->fila_pistas, aviao_id_original)) {
         return -5;
     }
@@ -874,8 +904,7 @@ int banker_request_resources(RecursosAeroporto* recursos, int aviao_id, int requ
     if (request[RECURSO_TORRE] > 0 && !eh_minha_vez_na_fila(&recursos->fila_torres, aviao_id_original)) {
         return -7;
     }
-    
-    // 3. Verificar disponibilidade física
+
     if (request[RECURSO_PISTA] > 0 && recursos->pistas_disponiveis == 0) {
         return -3;
     }
@@ -885,17 +914,14 @@ int banker_request_resources(RecursosAeroporto* recursos, int aviao_id, int requ
     if (request[RECURSO_TORRE] > 0 && recursos->slots_torre_disponiveis == 0) {
         return -3;
     }
-    
-    // 4. Simular alocação temporária
+
     for (int i = 0; i < N_RESOURCES; i++) {
         recursos->banco.disponivel[i] -= request[i];
         recursos->banco.alocacao[aviao_id][i] += request[i];
         recursos->banco.necessidade[aviao_id][i] -= request[i];
     }
     
-    // 5. Verificar se o estado permanece seguro
     if (!is_safe_state(&recursos->banco)) {
-        // Reverter simulação
         for (int i = 0; i < N_RESOURCES; i++) {
             recursos->banco.disponivel[i] += request[i];
             recursos->banco.alocacao[aviao_id][i] -= request[i];
@@ -904,7 +930,6 @@ int banker_request_resources(RecursosAeroporto* recursos, int aviao_id, int requ
         return -4;
     }
     
-    // 6. ALOCAÇÃO FÍSICA
     if (request[RECURSO_PISTA] > 0) {
         pthread_mutex_lock(&recursos->mutex_pistas);
         for (int i = 0; i < recursos->total_pistas; i++) {
@@ -941,8 +966,7 @@ int banker_request_resources(RecursosAeroporto* recursos, int aviao_id, int requ
         }
         pthread_mutex_unlock(&recursos->mutex_torres);
     }
-    
-    // 7. Remover das filas
+
     if (request[RECURSO_PISTA] > 0) {
         remover_da_fila_prioridade(&recursos->fila_pistas, aviao_id_original);
     }
@@ -957,23 +981,23 @@ int banker_request_resources(RecursosAeroporto* recursos, int aviao_id, int requ
 }
 
 int banker_release_resources(RecursosAeroporto* recursos, int aviao_id, int release[]) {
-    if (aviao_id < 0 || aviao_id >= MAX_AVIOES) { return; }
-    
-    // 1. Verificar se o release é válido
-    for (int i = 0; i < N_RESOURCES; i++) {
-        if (release[i] < 0 || release[i] > recursos->banco.alocacao[aviao_id][i]) {
-            return -1; 
-        }
+    if (aviao_id < 0 || aviao_id >= MAX_AVIOES) {
+        return; 
     }
     
-    // 2. Liberar os recursos
+    for (int i = 0; i < N_RESOURCES; i++) {
+        if (release[i] < 0 || release[i] > recursos->banco.alocacao[aviao_id][i]) {
+
+            return -1;
+        }
+    }
+
     for (int i = 0; i < N_RESOURCES; i++) {
         recursos->banco.disponivel[i] += release[i];
         recursos->banco.alocacao[aviao_id][i] -= release[i];
         recursos->banco.necessidade[aviao_id][i] += release[i];
     }
-    
-    // 3. Sinalizar as filas de prioridade dos recursos liberados
+
     if (release[RECURSO_PISTA] > 0) {
         pthread_cond_signal(&recursos->fila_pistas.cond);
     }
@@ -983,8 +1007,7 @@ int banker_release_resources(RecursosAeroporto* recursos, int aviao_id, int rele
     if (release[RECURSO_TORRE] > 0) {
         pthread_cond_signal(&recursos->fila_torres.cond);
     }
-    
-    // 4. Sinalizar também o condition variable geral do banco
+
     pthread_cond_broadcast(&recursos->cond_banco);
     return 0;
 }
@@ -1017,7 +1040,9 @@ void definir_necessidade_operacao(EstadoAviao operacao, int necessidade[N_RESOUR
 }
 
 void banker_init_aviao(RecursosAeroporto* recursos, int aviao_id) {
-    if (aviao_id < 0 || aviao_id >= MAX_AVIOES) { return; }
+    if (aviao_id < 0 || aviao_id >= MAX_AVIOES) {
+        return;
+    }
 
     pthread_mutex_lock(&recursos->mutex_banco);
 
@@ -1044,7 +1069,6 @@ void recuperar_deadlock_por_sacrificio(SimulacaoAeroporto* sim) {
         return;
     }
 
-    // 1. Escolher a vítima
     for (int i = 0; i < sim->metricas.total_avioes_criados; i++) {
         Aviao* candidato = &sim->avioes[i];
         bool possui_recurso = candidato->pista_alocada != -1 || candidato->portao_alocado != -1 || candidato->torre_alocada > 0;
@@ -1058,14 +1082,11 @@ void recuperar_deadlock_por_sacrificio(SimulacaoAeroporto* sim) {
         }
     }
 
-    // 2. Se uma vítima foi encontrada, marque-a para sacrifício
     if (vitima != NULL) {
         log_evento_ui(sim, NULL, LOG_ERROR, "DEADLOCK! Sistema inativo. Marcando aviao %d para sacrifício.", vitima->id);
         
-        // APENAS MARCA A VÍTIMA
         vitima->sacrificado = true;
-        
-        // Acorda todas as threads para que a vítima possa se verificar e se encerrar.
+
         pthread_cond_broadcast(&sim->recursos.cond_banco);
     }
 
