@@ -4,8 +4,6 @@
 #ifndef UTILS_H
 #define UTILS_H
 
-int gerar_numero_aleatorio(int min, int max);
-
 // Funções de prioridade e monitoramento
 void* monitorar_avioes(void* arg);
 void verificar_avioes_em_espera(SimulacaoAeroporto* sim);
